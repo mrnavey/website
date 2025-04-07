@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Clickor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+      /* Provides icons using a font */
+      @font-face {
+        font-family: 'LucideIcons';
+        src: url(https://cdn.jsdelivr.net/npm/lucide-static@latest/font/Lucide.ttf) format('truetype');
+      }
+      .lucide {
+        font-family: 'LucideIcons';
+        font-size: 1rem; /* Adjusted icon size slightly */
+        line-height: 1;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      /* Base body styling */
+      body {
+        font-family: 'Press Start 2P', cursive;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        overflow-x: hidden;
+      }
+      /* Animation for the main clickable item */
+      .item-click-animation {
+        animation: click-bounce 0.1s ease-in-out;
+      }
+      @keyframes click-bounce {
+        0% { transform: scale(1); }
+        50% { transform: scale(0.95); }
+        100% { transform: scale(1); }
+      }
+
+      /* --- Button styling for Dark Mode --- */
+      /* Using Tailwind classes directly on buttons now */
+
+      /* --- Container styling for Dark Mode --- */
+      /* Using Tailwind classes directly on containers now */
+
+      /* Message Box styling (Bottom Center) */
+      #message-box {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #facc15; /* yellow-400 */
+        color: #1f2937; /* gray-800 */
+        padding: 10px 20px;
+        border: 4px solid #ca8a04; /* yellow-600 */
+        box-shadow: 4px 4px 0px #ca8a04; /* yellow-600 */
+        border-radius: 0;
+        font-family: 'Press Start 2P', cursive;
+        z-index: 1000;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.5s ease-in-out;
+        white-space: nowrap; /* Prevent wrapping */
+      }
+      #message-box.show {
+        display: block;
+        opacity: 1;
+      }
+
+      /* --- Floating Numbers --- */
+      #clickable-item-area {
+        position: relative;
+        display: inline-block;
+      }
+      .floating-number {
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #bfdbfe; /* blue-200 */
+        text-shadow: none;
+        pointer-events: none;
+        animation: float-up 1s ease-out forwards;
+        white-space: nowrap;
+      }
+      @keyframes float-up {
+        0% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, -80px); }
+      }
+
+      /* --- Milestone Notification Styling --- */
+      #milestone-bonus-notification {
+          opacity: 0;
+          transition: opacity 0.5s ease-in-out;
+          color: #c4b5fd; /* purple-300 */
+      }
+      /* Style for disabled/unaffordable upgrade boxes */
+      .upgrade-disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+      }
+      /* Helper class to hide/show upgrade details */
+      .details-hidden {
+          display: none !important; /* Use important to override potential conflicts */
+      }
+
+      /* Custom smaller text size */
+      .text-xxs {
+          font-size: 0.65rem; /* ~10px */
+          line-height: 0.9rem; /* Adjust line height for smaller font */
+      }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 flex flex-col items-center min-h-screen p-4 md:p-8">
+
+    <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-100 text-center">Editor Clickor</h1>
+    <p class="text-center text-sm text-gray-400 mb-2 -mt-4">The notes are mysterious and important.</p>
+    <p id="total-notes-display" class="text-center text-xs text-gray-500 mb-6">Total Notes Addressed: 0</p>
+
+
+    <div class="flex flex-col lg:flex-row w-full max-w-6xl gap-8">
+
+        <div class="flex-shrink-0 flex flex-col items-center lg:w-1/3">
+            <div class="p-4 rounded-lg border border-gray-600 bg-gray-700 w-full text-center mb-6">
+                 <h2 class="text-xl mb-2 text-gray-100">Notes Addressed</h2>
+                 <p id="cuts-count" class="text-3xl font-bold text-gray-50">0</p>
+                 <p id="cps-count" class="text-xs mt-1 text-gray-400">0 notes per second</p>
+                 <p id="prestige-bonus-display" class="text-xs mt-1 text-purple-400 font-semibold"></p>
+            </div>
+
+            <div id="clickable-item-area" class="mb-6">
+                <div id="clickable-item" class="cursor-pointer transition-transform duration-100 ease-in-out active:scale-95">
+                    <img src="images/Media_Composer_Logo.png"
+                         alt="Media Composer Logo - Click to Address Note"
+                         class="w-32 h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 block mx-auto drop-shadow-lg rounded-lg"
+                         style="filter: drop-shadow(5px 5px 3px rgba(0,0,0,0.3));"
+                         onerror="this.style.display='none'; this.onerror=null; document.getElementById('emoji-fallback').style.display='block';"
+                    />
+                    <span id="emoji-fallback" style="font-size: 150px; display: none; text-align: center; filter: drop-shadow(5px 5px 3px rgba(0,0,0,0.3));">📝</span>
+                </div>
+            </div>
+             <p class="text-center text-sm text-gray-400 italic">Address another note!</p>
+             <div id="milestone-bonus-notification" class="text-center text-xs text-purple-400 font-semibold mt-2 opacity-0 transition-opacity duration-500"></div>
+        </div>
+
+        <div class="flex-grow lg:w-2/3">
+            <div class="p-4 rounded-lg border border-gray-600 bg-gray-700 w-full">
+                <h2 class="text-xl mb-4 text-center text-gray-100">Efficiency Boosters</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div id="upgrade-fa" class="border border-blue-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <h3 class="font-semibold text-sm text-blue-300 flex items-center mb-1"><span class="lucide mr-1">⚡</span> Faster Addressing</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap">Level: <span id="click-power-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap">Speed: <span id="click-power-current">1</span></p>
+                             <p class="text-xxs text-gray-400">Cost: <span id="click-power-cost">15</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-ae" class="border border-green-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-green-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">👩🏻‍💼</span> Assistant Editor</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="asstEd-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="asstEd-cps">1</span> notes/s</p>
+                             <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="asstEd-cost">100</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-ap" class="border border-purple-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-purple-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">🧑</span> Associate Producer</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="assocProd-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="assocProd-cps">5</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="assocProd-cost">500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-sp" class="border border-orange-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-orange-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">📈</span> Senior Producer</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="sp-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="sp-cps">25</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="sp-cost">2500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-cd" class="border border-red-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-red-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">💡</span> Creative Director</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="cd-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="cd-cps">125</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="cd-cost">12500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-prin" class="border border-yellow-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-yellow-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">👑</span> Principal</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="prin-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="prin-cps">625</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="prin-cost">62500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-cli" class="border border-teal-700 p-3 rounded-lg bg-gray-800 transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-teal-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">💰</span> Client</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="cli-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="cli-cps">3125</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="cli-cost">312500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-se" class="border border-indigo-700 p-3 rounded-lg bg-gray-800 shadow-sm transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-indigo-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">🏢</span> Studio Executive</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="se-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="se-cps">15625</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="se-cost">1562500</span></p>
+                        </div>
+                    </div>
+                    <div id="upgrade-film" class="border border-pink-700 p-3 rounded-lg bg-gray-800 shadow-sm transition-colors duration-150 cursor-pointer hover:bg-gray-700">
+                        <div>
+                             <p class="upgrade-placeholder text-lg font-semibold text-gray-500 text-center py-6">?????</p>
+                             <h3 class="font-semibold text-sm text-pink-300 flex items-center mb-1 upgrade-details details-hidden"><span class="lucide mr-1">🎬</span> Filmmaker</h3>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Level: <span id="film-level">0</span></p>
+                             <p class="text-xxs text-gray-400 mb-1 whitespace-nowrap upgrade-details details-hidden">Each: <span id="film-cps">78125</span> notes/s</p>
+                            <p class="text-xxs text-gray-400 upgrade-details details-hidden">Cost: <span id="film-cost">7812500</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="prestige-section" class="p-4 rounded-lg border border-gray-600 bg-gray-700 w-full mt-6">
+                 <h2 class="text-xl mb-4 text-center text-gray-100">Finish Project</h2>
+                 <div class="text-center">
+                    <p class="text-sm mb-1 text-gray-300">Current Project Bonus: <strong id="prestige-level-bonus" class="text-purple-400">+0%</strong></p>
+                    <p class="text-sm mb-3 text-gray-300">Requirement: <strong id="prestige-requirement-display">100,000</strong> Notes</p>
+                    <button id="prestige-button" class="text-sm font-semibold py-2 px-4 rounded border border-yellow-600 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 disabled:opacity-50 disabled:cursor-not-allowed">Finish Project (Prestige)</button>
+                    <p class="text-xs mt-2 text-gray-400 italic">Resets progress for a permanent bonus!</p>
+                 </div>
+            </div>
+
+            <div class="text-center mt-6">
+                 <button id="complete-reset-button" class="text-xs font-medium py-1 px-3 rounded border border-red-500 bg-red-200 hover:bg-red-300 text-red-800 disabled:opacity-50 disabled:cursor-not-allowed">Complete Reset</button>
+                 <p class="text-xs mt-1 text-gray-500 italic">Warning: Deletes ALL progress including Prestige!</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="message-box"></div>
+
+    <script>
+        // --- Game State Variables ---
+        let cuts = 0;
+        let cutsPerSecond = 0; // Base CPS before prestige OR milestone bonuses
+        let clickPower = 1; // Represents TOTAL base click power (1 + bonus from upgrades)
+        let prestigeLevel = 0;
+        let prestigeRequirement = 100000;
+        const prestigeBonusMultiplier = 0.20; // +20% per level
+        let totalNotesEarned = 0; // Track total notes earned across prestiges
+
+        // --- Base Upgrade Details (Used for Resetting on Prestige) ---
+        // *** UPDATED: Base cost and effect for tiers based on 5x scaling ***
+        const baseUpgrades = {
+            fasterAddressing: { level: 0, cost: 15, multiplier: 1.30, currentTotalEffect: 0 },
+            assistantEditor: { level: 0, cost: 100, multiplier: 1.15, effect: 1, cps: 0, unlocked: false, revealed: false },
+            associateProducer: { level: 0, cost: 500, multiplier: 1.15, effect: 5, cps: 0, unlocked: false, revealed: false }, // 100*5, 1*5
+            seniorProducer: { level: 0, cost: 2500, multiplier: 1.15, effect: 25, cps: 0, unlocked: false, revealed: false }, // 500*5, 5*5
+            creativeDirector: { level: 0, cost: 12500, multiplier: 1.15, effect: 125, cps: 0, unlocked: false, revealed: false }, // 2500*5, 25*5
+            principal: { level: 0, cost: 62500, multiplier: 1.15, effect: 625, cps: 0, unlocked: false, revealed: false }, // 12500*5, 125*5
+            client: { level: 0, cost: 312500, multiplier: 1.15, effect: 3125, cps: 0, unlocked: false, revealed: false }, // 62500*5, 625*5
+            studioExecutive: { level: 0, cost: 1562500, multiplier: 1.15, effect: 15625, cps: 0, unlocked: false, revealed: false }, // 312500*5, 3125*5
+            filmmaker: { level: 0, cost: 7812500, multiplier: 1.15, effect: 78125, cps: 0, unlocked: false, revealed: false }, // 1562500*5, 15625*5
+        };
+        // --- Current Upgrade State (Initialized from base, loaded from save if available) ---
+        let upgrades = JSON.parse(JSON.stringify(baseUpgrades)); // Deep copy
+
+        // --- Easter Egg State ---
+        let keySequence = "";
+        const MAX_SEQUENCE_LENGTH = 11;
+
+        // --- Local Storage Keys ---
+        const SAVE_KEY = 'editorClickorSave_v1';
+        // Player name and high score keys removed
+
+        // --- DOM Element References ---
+        const cutsCountElement = document.getElementById('cuts-count');
+        const cpsCountElement = document.getElementById('cps-count');
+        const clickableItem = document.getElementById('clickable-item');
+        const clickableItemArea = document.getElementById('clickable-item-area');
+        const messageBox = document.getElementById('message-box');
+        const prestigeBonusDisplayElement = document.getElementById('prestige-bonus-display');
+        const milestoneNotificationElement = document.getElementById('milestone-bonus-notification');
+        const totalNotesDisplayElement = document.getElementById('total-notes-display');
+
+
+        // Get references to upgrade DIVs for click listeners and disabling
+        const upgradeDivs = {
+            fasterAddressing: document.getElementById('upgrade-fa'),
+            assistantEditor: document.getElementById('upgrade-ae'),
+            associateProducer: document.getElementById('upgrade-ap'),
+            seniorProducer: document.getElementById('upgrade-sp'),
+            creativeDirector: document.getElementById('upgrade-cd'),
+            principal: document.getElementById('upgrade-prin'),
+            client: document.getElementById('upgrade-cli'),
+            studioExecutive: document.getElementById('upgrade-se'),
+            filmmaker: document.getElementById('upgrade-film')
+        };
+
+        // Upgrade UI Elements (Spans/Paragraphs inside divs)
+        const clickPowerCostElement = document.getElementById('click-power-cost');
+        const clickPowerLevelElement = document.getElementById('click-power-level');
+        const clickPowerCurrentElement = document.getElementById('click-power-current');
+        const asstEdCostElement = document.getElementById('asstEd-cost');
+        const asstEdLevelElement = document.getElementById('asstEd-level');
+        const asstEdCpsElement = document.getElementById('asstEd-cps');
+        const assocProdCostElement = document.getElementById('assocProd-cost');
+        const assocProdLevelElement = document.getElementById('assocProd-level');
+        const assocProdCpsElement = document.getElementById('assocProd-cps');
+        const spCostElement = document.getElementById('sp-cost');
+        const spLevelElement = document.getElementById('sp-level');
+        const spCpsElement = document.getElementById('sp-cps');
+        const cdCostElement = document.getElementById('cd-cost');
+        const cdLevelElement = document.getElementById('cd-level');
+        const cdCpsElement = document.getElementById('cd-cps');
+        const prinCostElement = document.getElementById('prin-cost');
+        const prinLevelElement = document.getElementById('prin-level');
+        const prinCpsElement = document.getElementById('prin-cps');
+        const cliCostElement = document.getElementById('cli-cost');
+        const cliLevelElement = document.getElementById('cli-level');
+        const cliCpsElement = document.getElementById('cli-cps');
+        const seCostElement = document.getElementById('se-cost');
+        const seLevelElement = document.getElementById('se-level');
+        const seCpsElement = document.getElementById('se-cps');
+        const filmCostElement = document.getElementById('film-cost');
+        const filmLevelElement = document.getElementById('film-level');
+        const filmCpsElement = document.getElementById('film-cps');
+
+        // Prestige UI Elements
+        const prestigeLevelBonusElement = document.getElementById('prestige-level-bonus');
+        const prestigeRequirementDisplayElement = document.getElementById('prestige-requirement-display');
+        const prestigeButton = document.getElementById('prestige-button');
+        const completeResetButton = document.getElementById('complete-reset-button');
+
+        // Randomized "cannot afford" messages
+        const insufficientFundsMessages = [
+            "You need to add more scope.",
+            "It's too quiet, can you make it louder?",
+            "Can we see one more pass?",
+            "Let's try it with the other song."
+        ];
+
+
+        // --- Sound Effects ---
+        let synth = null;
+        function initializeAudio() { if (!synth && window.Tone) { try { synth = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.05, release: 0.1 } }).toDestination(); Tone.start(); console.log("Audio context started."); } catch (error) { console.error("Error initializing Tone.js:", error); synth = null; } } else if (!window.Tone) { console.warn("Tone.js not loaded."); } }
+        function playClickSound() { if (synth) { try { synth.triggerAttackRelease('C5', '16n'); } catch (error) { console.error("Error playing sound:", error); } } else { initializeAudio(); } }
+        function playUpgradeSound() { if (synth) { try { synth.triggerAttackRelease('E5', '16n'); } catch (error) { console.error("Error playing sound:", error); } } }
+        function playPrestigeSound() { if (synth) { try { synth.triggerAttackRelease('G5', '8n'); } catch (error) { console.error("Error playing sound:", error); } } }
+        function playSecretSound() { if (synth) { try { synth.triggerAttackRelease('A5', '8n'); } catch (error) { console.error("Error playing sound:", error); } } }
+        function playBadEventSound() { if (synth) { try { synth.triggerAttackRelease('C2', '8n'); } catch (error) { console.error("Error playing sound:", error); } } }
+
+        // --- Message Display ---
+        let messageTimeout;
+        function showMessage(message, duration = 2000) { messageBox.textContent = message; messageBox.classList.add('show'); clearTimeout(messageTimeout); messageTimeout = setTimeout(() => { messageBox.classList.remove('show'); }, duration); }
+
+        // --- Milestone Notification Display ---
+        let milestoneTimeout;
+        const upgradeFriendlyNames = { assistantEditor: "Assistant Editor", associateProducer: "Associate Producer", seniorProducer: "Senior Producer", creativeDirector: "Creative Director", principal: "Principal", client: "Client", studioExecutive: "Studio Executive", filmmaker: "Filmmaker" };
+        function showMilestoneNotification(unlockedTierKey, duration = 4000) {
+            const friendlyName = upgradeFriendlyNames[unlockedTierKey] || unlockedTierKey;
+            if (milestoneNotificationElement) {
+                milestoneNotificationElement.textContent = `${friendlyName} unlocked! Lower tier boosters x2!`;
+                milestoneNotificationElement.style.opacity = 1;
+                clearTimeout(milestoneTimeout);
+                milestoneTimeout = setTimeout(() => { milestoneNotificationElement.style.opacity = 0; }, duration);
+            }
+        }
+
+        // --- Number Formatting ---
+        function formatNumber(num, decimals = 1) { if (num < 1000) return num.toFixed(0); const suffixes = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc']; const i = Math.floor(Math.log10(Math.abs(num)) / 3); if (i >= suffixes.length) return num.toExponential(2); const value = (num / Math.pow(1000, i)); const adjustedDecimals = (value < 10 && i > 0) ? 2 : (value < 100 && i > 0) ? 1 : 0; return value.toFixed(adjustedDecimals) + suffixes[i]; }
+
+        // --- Calculate Prestige Bonus ---
+        function getPrestigeBonus() { return prestigeLevel * prestigeBonusMultiplier; }
+
+        // --- Game Logic ---
+
+        // Order of passive upgrades, used for milestone bonus calculation
+        const passiveUpgradeOrder = [ 'assistantEditor', 'associateProducer', 'seniorProducer', 'creativeDirector', 'principal', 'client', 'studioExecutive', 'filmmaker' ];
+
+        // Calculates effective CPS for a SINGLE LEVEL of an upgrade
+        function getEffectiveCPSPerLevel(upgradeName) {
+            const upgrade = upgrades[upgradeName];
+            if (!upgrade || upgradeName === 'fasterAddressing') { return 0; }
+
+            const baseEffectPerLevel = upgrade.effect;
+            let multiplier = 1.0;
+            const currentIndex = passiveUpgradeOrder.indexOf(upgradeName);
+
+            for (let i = currentIndex + 1; i < passiveUpgradeOrder.length; i++) {
+                const higherTierName = passiveUpgradeOrder[i];
+                // Check if the higher tier exists and has the 'unlocked' property (passive upgrades)
+                if (upgrades[higherTierName] && upgrades[higherTierName].hasOwnProperty('unlocked') && upgrades[higherTierName].unlocked) {
+                    multiplier *= 2;
+                }
+            }
+            return baseEffectPerLevel * multiplier;
+        }
+
+
+        // Calculates effective TOTAL CPS for ALL levels of an upgrade
+        function getEffectiveTotalCPSForUpgrade(upgradeName) {
+            const upgrade = upgrades[upgradeName];
+            if (!upgrade || upgradeName === 'fasterAddressing') { return 0; }
+            return getEffectiveCPSPerLevel(upgradeName) * upgrade.level;
+        }
+
+        // Updates all UI elements based on the current game state
+        function updateUI() {
+            const currentPrestigeBonus = getPrestigeBonus();
+            const displayBonusPercent = (currentPrestigeBonus * 100).toFixed(0);
+            const effectiveClickPower = clickPower * (1 + currentPrestigeBonus); // Use global clickPower
+
+            let totalEffectiveCPS = 0;
+            passiveUpgradeOrder.forEach(key => {
+                totalEffectiveCPS += getEffectiveTotalCPSForUpgrade(key);
+            });
+            totalEffectiveCPS *= (1 + currentPrestigeBonus);
+
+            cutsCountElement.textContent = formatNumber(Math.floor(cuts));
+            cpsCountElement.textContent = `${formatNumber(totalEffectiveCPS)} notes per second`;
+            prestigeBonusDisplayElement.textContent = `(+${displayBonusPercent}% Project Bonus)`;
+            document.title = `${formatNumber(Math.floor(cuts))} Notes - Editor Clickor`;
+            if (totalNotesDisplayElement) {
+                totalNotesDisplayElement.textContent = `Total Notes Addressed: ${Math.floor(totalNotesEarned).toLocaleString()}`;
+            }
+
+
+            // --- Update Upgrade UI Elements ---
+            // Faster Addressing (Always Visible)
+            const faUpgrade = upgrades.fasterAddressing;
+            clickPowerCostElement.textContent = formatNumber(Math.ceil(faUpgrade.cost));
+            clickPowerLevelElement.textContent = faUpgrade.level;
+            clickPowerCurrentElement.textContent = formatNumber(clickPower); // Display global clickPower
+            if (upgradeDivs.fasterAddressing) {
+                if (cuts < faUpgrade.cost) {
+                    upgradeDivs.fasterAddressing.classList.add('upgrade-disabled'); // Use CSS class
+                    upgradeDivs.fasterAddressing.classList.remove('hover:bg-gray-700');
+                } else {
+                    upgradeDivs.fasterAddressing.classList.remove('upgrade-disabled');
+                    upgradeDivs.fasterAddressing.classList.add('hover:bg-gray-700');
+                }
+            }
+
+            // Update passive upgrades (Visibility + Content)
+            passiveUpgradeOrder.forEach(key => {
+                const upgrade = upgrades[key];
+                const upgradeDiv = upgradeDivs[key];
+                if (!upgradeDiv) return;
+
+                // *** UPDATED: Reveal logic based on BASE cost & revealed flag ***
+                if (!upgrade.revealed && cuts >= baseUpgrades[key].cost) {
+                    upgrade.revealed = true; // Reveal permanently if base cost met
+                }
+
+                const detailsElements = upgradeDiv.querySelectorAll('.upgrade-details');
+                const placeholderElement = upgradeDiv.querySelector('.upgrade-placeholder');
+
+                if (upgrade.revealed) {
+                    if(placeholderElement) placeholderElement.classList.add('details-hidden'); // Hide placeholder
+                    detailsElements.forEach(el => el.classList.remove('details-hidden')); // Show details
+
+                    // Update content
+                    let prefix = key.length > 3 ? key.substring(0, 4).toLowerCase() : key.toLowerCase();
+                    if (key === 'client') prefix = 'cli';
+                    if (key === 'principal') prefix = 'prin';
+                    if (key === 'seniorProducer') prefix = 'sp';
+                    if (key === 'creativeDirector') prefix = 'cd';
+                    if (key === 'studioExecutive') prefix = 'se';
+                    if (key === 'filmmaker') prefix = 'film';
+                    if (key === 'assistantEditor') prefix = 'asstEd';
+                    if (key === 'associateProducer') prefix = 'assocProd';
+
+                    const costElement = document.getElementById(`${prefix}-cost`);
+                    const levelElement = document.getElementById(`${prefix}-level`);
+                    const cpsElement = document.getElementById(`${prefix}-cps`);
+
+                    if(costElement) costElement.textContent = formatNumber(Math.ceil(upgrade.cost));
+                    if(levelElement) levelElement.textContent = upgrade.level;
+                    if(cpsElement) cpsElement.textContent = formatNumber(getEffectiveCPSPerLevel(key)); // Display effective CPS
+
+                    // Update affordability styling based on CURRENT cost
+                    if (cuts < upgrade.cost) {
+                        upgradeDiv.classList.add('upgrade-disabled');
+                        upgradeDiv.classList.remove('hover:bg-gray-700');
+                    } else {
+                        upgradeDiv.classList.remove('upgrade-disabled');
+                        upgradeDiv.classList.add('hover:bg-gray-700');
+                    }
+                } else {
+                     // Keep details hidden
+                     if(placeholderElement) placeholderElement.classList.remove('details-hidden'); // Show placeholder
+                     detailsElements.forEach(el => el.classList.add('details-hidden')); // Hide details
+                     // Apply disabled styling as it's not revealed
+                     upgradeDiv.classList.add('upgrade-disabled');
+                     upgradeDiv.classList.remove('hover:bg-gray-700');
+                }
+            });
+
+            // Update Prestige UI elements
+            prestigeLevelBonusElement.textContent = `+${displayBonusPercent}%`;
+            prestigeRequirementDisplayElement.textContent = formatNumber(prestigeRequirement);
+            prestigeButton.disabled = Math.floor(cuts) < prestigeRequirement;
+
+            // High score display removed
+        }
+
+        // Calculates the total BASE notes per second from all passive upgrades (level * effect)
+        function calculateBaseCPS() {
+            let totalCPS = 0;
+            passiveUpgradeOrder.forEach(key => {
+                totalCPS += upgrades[key].level * upgrades[key].effect; // Use base effect
+            });
+            cutsPerSecond = totalCPS;
+        }
+
+        // Handles the logic for buying any upgrade
+        function buyUpgrade(upgradeName) {
+            initializeAudio();
+            const upgrade = upgrades[upgradeName];
+            if (!upgrade) { console.error("Unknown upgrade:", upgradeName); return; }
+
+            // Check if revealed first (using revealed flag)
+             if (!upgrade.revealed && upgradeName !== 'fasterAddressing') {
+                 console.log("Clicked obscured item (not yet revealed)");
+                 return; // Don't allow purchase if not revealed
+            }
+
+            // Check affordability before proceeding
+            if (cuts >= upgrade.cost) {
+                cuts -= upgrade.cost; // Deduct cost first
+                grantFreeUpgradeLevels(upgradeName, 1); // Use helper function to grant level and update cost/effects
+                playUpgradeSound();
+                // updateUI is called within grantFreeUpgradeLevels
+            } else {
+                 // Use randomized messages
+                 const randomIndex = Math.floor(Math.random() * insufficientFundsMessages.length);
+                 const randomMessage = insufficientFundsMessages[randomIndex];
+                 showMessage(randomMessage);
+            }
+        }
+
+        // Grants a specified number of levels for an upgrade without cost check
+        function grantFreeUpgradeLevels(upgradeName, levelsToGrant) {
+            const upgrade = upgrades[upgradeName];
+            if (!upgrade) { console.error("Attempted to grant levels for unknown upgrade:", upgradeName); return; }
+
+            let justUnlocked = false; // Milestone bonus flag
+            let justRevealed = false; // Visibility flag
+
+            // Check if unlocking a passive tier for the first time (for milestone bonus)
+            if (upgrade.level === 0 && levelsToGrant > 0 && upgrade.hasOwnProperty('unlocked')) {
+                if (!upgrade.unlocked) {
+                    upgrade.unlocked = true;
+                    justUnlocked = true;
+                    console.log(`${upgradeName} unlocked! Applying milestone bonuses.`);
+                }
+            }
+             // Check if revealing for the first time (for visibility)
+             if (upgrade.level === 0 && levelsToGrant > 0 && upgrade.hasOwnProperty('revealed')) {
+                 if (!upgrade.revealed) {
+                     upgrade.revealed = true; // Mark as revealed permanently
+                     justRevealed = true;
+                 }
+             }
+
+
+            for (let i = 0; i < levelsToGrant; i++) {
+                if (upgradeName === 'fasterAddressing') {
+                    // Effect scaling: +1 boost every 5 levels
+                    const currentLevel = upgrade.level;
+                    const effectForThisLevel = 1 + Math.floor(currentLevel / 5);
+                    upgrade.level++;
+                    upgrade.cost = Math.ceil(upgrade.cost * upgrade.multiplier);
+                    upgrade.currentTotalEffect += effectForThisLevel;
+                    clickPower = 1 + upgrade.currentTotalEffect;
+                } else {
+                    // Passive upgrades just increment level and cost
+                    upgrade.level++;
+                    upgrade.cost = Math.ceil(upgrade.cost * upgrade.multiplier);
+                }
+            }
+
+            calculateBaseCPS(); // Recalculate base CPS after level changes
+            updateUI(); // Update UI to reflect new levels, costs, and potentially boosted CPS displays
+
+            // Show milestone notification only if a passive tier (not the first one) was just unlocked
+            if (justUnlocked && upgradeName !== 'assistantEditor') {
+                 showMilestoneNotification(upgradeName);
+            }
+        }
+
+        // --- Floating Numbers Function ---
+        function showFloatingNumber(amount) { const numberElement = document.createElement('span'); numberElement.classList.add('floating-number'); numberElement.textContent = `+${formatNumber(amount)}`; clickableItemArea.appendChild(numberElement); setTimeout(() => { if (numberElement.parentNode) { numberElement.remove(); } }, 1000); }
+
+         // --- Prestige Function ---
+        function performPrestige() {
+            if (Math.floor(cuts) >= prestigeRequirement) {
+                // High score update removed
+                // CONFIRMATION DIALOG REMOVED FOR PREVIEW COMPATIBILITY
+                playPrestigeSound();
+                prestigeLevel++;
+                prestigeRequirement = Math.ceil(prestigeRequirement * 1.20); // Increase requirement by 20%
+
+                cuts = 0;
+                // totalNotesEarned is NOT reset on prestige
+                cutsPerSecond = 0;
+                upgrades = JSON.parse(JSON.stringify(baseUpgrades)); // Resets 'revealed' and 'unlocked' flags
+                clickPower = 1 + upgrades.fasterAddressing.currentTotalEffect; // Base 1 + bonus (which is 0)
+
+                calculateBaseCPS();
+                updateUI();
+                saveGame(); // Save after prestige
+                showMessage(`Project Finished! You gained a permanent +${(getPrestigeBonus() * 100).toFixed(0)}% bonus!`);
+                console.log("Prestige successful. New Level:", prestigeLevel, "New Req:", prestigeRequirement);
+            } else {
+                console.log("Prestige condition NOT met on click. Cuts:", Math.floor(cuts), "Requirement:", prestigeRequirement);
+                showMessage("Not enough notes to finish the project yet!");
+            }
+        }
+
+        // High Score Update Function REMOVED
+
+        // --- Saving & Loading ---
+        function saveGame() {
+             // Save core game state
+             const gameState = {
+                 cuts: cuts, prestigeLevel: prestigeLevel,
+                 prestigeRequirement: prestigeRequirement, upgrades: upgrades, // Includes 'revealed' & 'unlocked'
+                 totalNotesEarned: totalNotesEarned, // Save total notes
+                 saveTime: Date.now() };
+             try { localStorage.setItem(SAVE_KEY, JSON.stringify(gameState)); }
+             catch (error) { console.error("Error saving game state:", error); }
+             // Player name saving removed
+         }
+        function loadGame() {
+            // Player name loading removed
+
+            // Load Game State
+            const savedStateJSON = localStorage.getItem(SAVE_KEY);
+            if (savedStateJSON) {
+                try {
+                    const savedState = JSON.parse(savedStateJSON);
+                    cuts = savedState.cuts || 0;
+                    prestigeLevel = savedState.prestigeLevel || 0;
+                    prestigeRequirement = savedState.prestigeRequirement > 0 ? savedState.prestigeRequirement : 100000;
+                    totalNotesEarned = savedState.totalNotesEarned || cuts || 0; // Load total notes, default to current/0 if missing
+
+                    // Load upgrades carefully, merging onto the LATEST base structure
+                    if (savedState.upgrades) {
+                        let loadedUpgrades = JSON.parse(JSON.stringify(baseUpgrades));
+                        for (const key in loadedUpgrades) {
+                            if (savedState.upgrades && savedState.upgrades.hasOwnProperty(key)) {
+                                // Merge saved properties onto the base structure
+                                Object.assign(loadedUpgrades[key], savedState.upgrades[key]);
+                            }
+                        }
+                        upgrades = loadedUpgrades;
+                    } else { upgrades = JSON.parse(JSON.stringify(baseUpgrades)); }
+
+                    // *** Update clickPower based on loaded fasterAddressing state ***
+                    clickPower = 1 + upgrades.fasterAddressing.currentTotalEffect;
+
+                    // *** OFFLINE PROGRESS REMOVED in V4.16 ***
+
+                    calculateBaseCPS();
+                    updateUI(); // updateUI will handle initial visibility
+                    console.log("Game Loaded");
+                    return true;
+                } catch (error) { console.error("Error loading game state:", error); localStorage.removeItem(SAVE_KEY); resetGameToDefaults(); return false; }
+            } else { console.log("No save file found. Starting new game."); resetGameToDefaults(); return false; }
+        }
+        // Resets game to initial state
+        function resetGameToDefaults() {
+             cuts = 0; cutsPerSecond = 0; prestigeLevel = 0;
+             prestigeRequirement = 100000;
+             totalNotesEarned = 0; // Reset total notes earned
+             upgrades = JSON.parse(JSON.stringify(baseUpgrades)); // Resets 'revealed' flags too
+             // *** Reset clickPower correctly ***
+             clickPower = 1 + upgrades.fasterAddressing.currentTotalEffect; // Base 1 + bonus (which is 0)
+             calculateBaseCPS();
+             updateUI();
+             // Player name is not reset here, only by complete reset
+        }
+
+        // Complete Reset Function
+        function performCompleteReset() {
+            if (confirm("WARNING! This will completely reset ALL game progress, including notes, upgrades, and ALL Prestige bonuses/Finishes. This cannot be undone. Are you absolutely sure?")) {
+                console.log("Complete Reset Confirmed.");
+                try {
+                    localStorage.removeItem(SAVE_KEY); // Remove saved game state
+                    // High score and player name keys removed
+                } catch(e) {
+                    console.error("Could not remove saved data:", e);
+                }
+                // Player name clearing removed
+                resetGameToDefaults(); // Reset all game variables to initial state
+                playBadEventSound();
+                showMessage("Game completely reset!");
+                 // Name prompt removed
+                 updateUI(); // Update display immediately after reset
+            } else {
+                console.log("Complete Reset Cancelled.");
+            }
+        }
+
+
+        // --- Event Listeners ---
+        clickableItem.addEventListener('click', () => {
+            initializeAudio(); playClickSound();
+            const currentPrestigeBonus = getPrestigeBonus();
+            const actualClickPower = clickPower * (1 + currentPrestigeBonus);
+            cuts += actualClickPower;
+            totalNotesEarned += actualClickPower; // Track total notes
+            showFloatingNumber(actualClickPower);
+            clickableItem.classList.add('item-click-animation');
+            setTimeout(() => { clickableItem.classList.remove('item-click-animation'); }, 100);
+
+            const disasterChance = 0.00000001;
+            if (Math.random() < disasterChance) {
+                console.log("RANDOM DISASTER EVENT TRIGGERED!"); cuts = 0; playBadEventSound();
+                showMessage("The client decided they want to try a different music cue. All notes addressed were a waste of time.", 5000);
+            }
+            updateUI();
+        });
+
+        // Add listeners to upgrade DIVs
+        Object.keys(upgradeDivs).forEach(key => {
+            if (upgradeDivs[key]) {
+                upgradeDivs[key].addEventListener('click', () => buyUpgrade(key));
+            }
+        });
+
+        // Prestige button listener
+        prestigeButton.addEventListener('click', performPrestige);
+        // Complete Reset Button Listener
+        if (completeResetButton) {
+            completeResetButton.addEventListener('click', performCompleteReset);
+        }
+
+
+        // Easter Egg Listener
+        window.addEventListener('keydown', (event) => {
+            if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                keySequence += event.key.toLowerCase();
+                keySequence = keySequence.slice(-MAX_SEQUENCE_LENGTH);
+
+                let codeActivated = false;
+                let soundToPlay = playSecretSound; // Default sound
+
+                if (keySequence.endsWith("miriam")) {
+                    console.log("Easter egg activated: miriam");
+                    const bonus = 100000;
+                    cuts += bonus;
+                    totalNotesEarned += bonus; // Track total notes
+                    showMessage("Look at her go! +100K Notes!", 3000); codeActivated = true;
+                } else if (keySequence.endsWith("danielle")) {
+                    console.log("Easter egg activated: danielle"); grantFreeUpgradeLevels('assistantEditor', 10);
+                    showMessage("Danielle boosts the edit! +10 Assistant Editors!", 3000); codeActivated = true;
+                } else if (keySequence.endsWith("jeffrey")) {
+                    console.log("Easter egg activated: jeffrey"); grantFreeUpgradeLevels('seniorProducer', 10);
+                    showMessage("Jeffrey organizes the project! +10 Senior Producers!", 3000); codeActivated = true;
+                } else if (keySequence.endsWith("alanireland")) {
+                    console.log("Easter egg activated: alanireland"); grantFreeUpgradeLevels('creativeDirector', 10);
+                    showMessage("Alan steers the vision! +10 Creative Directors!", 3000); codeActivated = true;
+                } else if (keySequence.endsWith("michelle")) {
+                    console.log("Easter egg activated: michelle"); grantFreeUpgradeLevels('principal', 10);
+                    showMessage("Michelle leads the way! +10 Principals!", 3000); codeActivated = true;
+                } else if (keySequence.endsWith("evanrules")) {
+                    console.log("Easter egg activated: evanrules");
+                    // updateHighScores(); // Removed
+                    prestigeLevel++;
+                    prestigeRequirement = Math.ceil(prestigeRequirement * 1.20);
+                    cuts = 0;
+                    cutsPerSecond = 0;
+                    upgrades = JSON.parse(JSON.stringify(baseUpgrades));
+                    clickPower = 1 + upgrades.fasterAddressing.currentTotalEffect;
+                    calculateBaseCPS();
+                    saveGame();
+                    showMessage("EVAN RULES! Prestige level added!", 3000);
+                    soundToPlay = playPrestigeSound;
+                    codeActivated = true;
+                }
+
+
+                if (codeActivated) {
+                    soundToPlay();
+                    updateUI();
+                    keySequence = "";
+                }
+            }
+        });
+
+
+        // --- Game Loop & Saving Interval ---
+        setInterval(() => {
+            let effectiveTotalCPS = 0;
+            passiveUpgradeOrder.forEach(key => {
+                effectiveTotalCPS += getEffectiveTotalCPSForUpgrade(key); // Use helper
+            });
+            effectiveTotalCPS *= (1 + getPrestigeBonus()); // Apply prestige bonus
+
+            if (document.visibilityState === 'visible') {
+                const passiveGain = effectiveTotalCPS / 10;
+                cuts += passiveGain;
+                totalNotesEarned += passiveGain; // Track total notes
+            }
+            updateUI(); // Update display regardless of visibility
+        }, 100);
+        setInterval(saveGame, 15000);
+        window.addEventListener('beforeunload', saveGame);
+
+        // --- Initial Setup ---
+        window.onload = () => {
+            if (!loadGame()) { // Try loading game
+                 resetGameToDefaults(); // Reset if no save found
+                 showMessage("Click the image to start addressing notes!", 3000);
+            }
+
+             // Name prompt removed
+
+            // Ensure base CPS and click power reflect loaded state correctly
+            calculateBaseCPS();
+            clickPower = 1 + upgrades.fasterAddressing.currentTotalEffect;
+            updateUI(); // Ensure UI reflects the loaded/default state
+            console.log("Game Initialized!");
+            initializeAudio(); // Try initializing audio context on load
+        };
+    </script>
+
+</body>
+</html>
