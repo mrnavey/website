@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Clickor - Get Clicking!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Apply Inter font globally */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Background color: Slate 900 */
+            background-color: #0f172a; /* bg-slate-900 */
+            margin: 0; /* Ensure no default body margin */
+            overflow: hidden; /* Hide scrollbars */
+        }
+
+        /* Style the canvas to be fixed behind other content */
+        #dotCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place canvas behind other elements */
+            display: block; /* Remove extra space below canvas */
+        }
+
+        /* Ensure main content stays above the canvas */
+        .content-container {
+            position: relative;
+            z-index: 1; /* Ensure content is above canvas */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Simple hover animation for the button */
+        .hover-pop:hover {
+            transform: scale(1.05);
+        }
+        .hover-pop {
+            transition: transform 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <canvas id="dotCanvas"></canvas>
+
+    <div class="content-container">
+        <div class="text-center p-8 bg-white rounded-xl shadow-lg max-w-md mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold text-indigo-600 mb-4">
+                Editor Clickor
+            </h1>
+
+            <p class="text-lg text-gray-700 mb-8">
+                Ready to click your way to victory? The editor awaits!
+            </p>
+
+            <a href="editorclickor/index.html"
+               class="inline-flex items-center justify-center px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-semibold rounded-lg shadow-md hover-pop focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75">
+                <img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/mouse-pointer-click.svg" alt="" class="w-6 h-6 mr-3" />
+                Play Now!
+            </a>
+
+            <p class="text-sm text-gray-500 mt-6">
+                Warning: May be highly addictive!
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // --- Perlin Noise Implementation ---
+        // (Based on Stefan Gustavson's and Ken Perlin's work)
+        const noise = (function() {
+            // Ported from Stefan Gustavson's java implementation
+            // http://staffwww.itn.liu.se/~stegu/simplexnoise/simplexnoise.pdf
+            // Read Stefan's excellent paper for details on how this code works.
+            //
+            // Ken Perlin details: http://cs.nyu.edu/~perlin/noise/
+            //
+
+            var module = {};
+
+            function Grad(x, y, z) {
+                this.x = x; this.y = y; this.z = z;
+            }
+
+            Grad.prototype.dot2 = function(x, y) {
+                return this.x*x + this.y*y;
+            };
+
+            Grad.prototype.dot3 = function(x, y, z) {
+                return this.x*x + this.y*y + this.z*z;
+            };
+
+            var grad3 = [new Grad(1,1,0),new Grad(-1,1,0),new Grad(1,-1,0),new Grad(-1,-1,0),
+                         new Grad(1,0,1),new Grad(-1,0,1),new Grad(1,0,-1),new Grad(-1,0,-1),
+                         new Grad(0,1,1),new Grad(0,-1,1),new Grad(0,1,-1),new Grad(0,-1,-1)];
+
+            var p = [151,160,137,91,90,15,
+            131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+            190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+            88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+            77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+            102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+            135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+            5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+            223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+            129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+            251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+            49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+            138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180];
+            // To remove the need for index wrapping, double the permutation table length
+            var perm = new Array(512);
+            var gradP = new Array(512);
+
+            // This isn't a very good seeding function, but it works ok. It supports 2^16
+            // different seed values. Write something better if you need more seeds.
+            module.seed = function(seed) {
+                if(seed > 0 && seed < 1) {
+                // Scale the seed out
+                seed *= 65536;
+                }
+
+                seed = Math.floor(seed);
+                if(seed < 256) {
+                seed |= seed << 8;
+                }
+
+                for(var i = 0; i < 256; i++) {
+                var v;
+                if (i & 1) {
+                    v = p[i] ^ (seed & 255);
+                } else {
+                    v = p[i] ^ ((seed>>8) & 255);
+                }
+
+                perm[i] = perm[i + 256] = v;
+                gradP[i] = gradP[i + 256] = grad3[v % 12];
+                }
+            };
+
+            module.seed(0);
+
+            /*
+            for(var i=0; i<256; i++) {
+                perm[i] = perm[i + 256] = p[i];
+                gradP[i] = gradP[i + 256] = grad3[perm[i] % 12];
+            }*/
+
+            // Skewing and unskewing factors for 2, 3, and 4 dimensions
+            var F2 = 0.5*(Math.sqrt(3.0)-1.0);
+            var G2 = (3.0-Math.sqrt(3.0))/6.0;
+            var F3 = 1.0/3.0;
+            var G3 = 1.0/6.0;
+
+            // 2D simplex noise
+            module.simplex2 = function(xin, yin) {
+                var n0, n1, n2; // Noise contributions from the three corners
+                // Skew the input space to determine which simplex cell we're in
+                var s = (xin+yin)*F2; // Hairy factor for 2D
+                var i = Math.floor(xin+s);
+                var j = Math.floor(yin+s);
+                var t = (i+j)*G2;
+                var x0 = xin-i+t; // The x,y distances from the cell origin, unskewed.
+                var y0 = yin-j+t;
+                // For the 2D case, the simplex shape is an equilateral triangle.
+                // Determine which region we are in.
+                var i1, j1; // Offsets for second corner of simplex in (i,j) coords
+                if(x0>y0) { // lower triangle, XY order: (0,0)->(1,0)->(1,1)
+                i1=1; j1=0;
+                } else {    // upper triangle, YX order: (0,0)->(0,1)->(1,1)
+                i1=0; j1=1;
+                }
+                // A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+                // a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+                // c = (3-sqrt(3))/6
+                var x1 = x0 - i1 + G2; // Offsets for middle corner in (x,y) unskewed coords
+                var y1 = y0 - j1 + G2;
+                var x2 = x0 - 1.0 + 2.0 * G2; // Offsets for last corner in (x,y) unskewed coords
+                var y2 = y0 - 1.0 + 2.0 * G2;
+                // Work out the hashed gradient indices of the three simplex corners
+                i &= 255;
+                j &= 255;
+                var gi0 = gradP[i+perm[j]];
+                var gi1 = gradP[i+i1+perm[j+j1]];
+                var gi2 = gradP[i+1+perm[j+1]];
+                // Calculate the contribution from the three corners
+                var t0 = 0.5 - x0*x0-y0*y0;
+                if(t0<0) {
+                n0 = 0.0;
+                } else {
+                t0 *= t0;
+                n0 = t0 * t0 * gi0.dot2(x0, y0);  // (x,y) of grad3 used for 2D gradient
+                }
+                var t1 = 0.5 - x1*x1-y1*y1;
+                if(t1<0) {
+                n1 = 0.0;
+                } else {
+                t1 *= t1;
+                n1 = t1 * t1 * gi1.dot2(x1, y1);
+                }
+                var t2 = 0.5 - x2*x2-y2*y2;
+                if(t2<0) {
+                n2 = 0.0;
+                } else {
+                t2 *= t2;
+                n2 = t2 * t2 * gi2.dot2(x2, y2);
+                }
+                // Add contributions from each corner to get the final noise value.
+                // The result is scaled to return values in the interval [-1,1].
+                return 70.0 * (n0 + n1 + n2);
+            };
+
+            // 3D simplex noise
+            module.simplex3 = function(xin, yin, zin) {
+                var n0, n1, n2, n3; // Noise contributions from the four corners
+                // Skew the input space to determine which simplex cell we're in
+                var s = (xin+yin+zin)*F3; // Hairy factor for 3D
+                var i = Math.floor(xin+s);
+                var j = Math.floor(yin+s);
+                var k = Math.floor(zin+s);
+                var t = (i+j+k)*G3;
+                var x0 = xin-i+t; // The x,y,z distances from the cell origin, unskewed.
+                var y0 = yin-j+t;
+                var z0 = zin-k+t;
+                // For the 3D case, the simplex shape is a slightly irregular tetrahedron.
+                // Determine which region we are in.
+                var i1, j1, k1; // Offsets for second corner of simplex in (i,j,k) coords
+                var i2, j2, k2; // Offsets for third corner of simplex in (i,j,k) coords
+                if(x0 >= y0) {
+                if(y0 >= z0)      { i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; }
+                else if(x0 >= z0) { i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; }
+                else              { i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; }
+                } else {
+                if(y0 < z0)      { i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; }
+                else if(x0 < z0) { i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; }
+                else             { i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; }
+                }
+                // A step of (1,0,0) in (i,j,k) means a step of (1-c,-c,-c) in (x,y,z),
+                // a step of (0,1,0) in (i,j,k) means a step of (-c,1-c,-c) in (x,y,z), and
+                // a step of (0,0,1) in (i,j,k) means a step of (-c,-c,1-c) in (x,y,z), where
+                // c = 1/6.
+                var x1 = x0 - i1 + G3; // Offsets for second corner
+                var y1 = y0 - j1 + G3;
+                var z1 = z0 - k1 + G3;
+                var x2 = x0 - i2 + 2.0*G3; // Offsets for third corner
+                var y2 = y0 - j2 + 2.0*G3;
+                var z2 = z0 - k2 + 2.0*G3;
+                var x3 = x0 - 1.0 + 3.0*G3; // Offsets for fourth corner
+                var y3 = y0 - 1.0 + 3.0*G3;
+                var z3 = z0 - 1.0 + 3.0*G3;
+                // Work out the hashed gradient indices of the four simplex corners
+                i &= 255;
+                j &= 255;
+                k &= 255;
+                var gi0 = gradP[i+perm[j+perm[k]]];
+                var gi1 = gradP[i+i1+perm[j+j1+perm[k+k1]]];
+                var gi2 = gradP[i+i2+perm[j+j2+perm[k+k2]]];
+                var gi3 = gradP[i+1+perm[j+1+perm[k+1]]];
+                // Calculate the contribution from the four corners
+                var t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+                if(t0<0) {
+                n0 = 0.0;
+                } else {
+                t0 *= t0;
+                n0 = t0 * t0 * gi0.dot3(x0, y0, z0);  // (x,y) of grad3 used for 2D gradient
+                }
+                var t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+                if(t1<0) {
+                n1 = 0.0;
+                } else {
+                t1 *= t1;
+                n1 = t1 * t1 * gi1.dot3(x1, y1, z1);
+                }
+                var t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+                if(t2<0) {
+                n2 = 0.0;
+                } else {
+                t2 *= t2;
+                n2 = t2 * t2 * gi2.dot3(x2, y2, z2);
+                }
+                var t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+                if(t3<0) {
+                n3 = 0.0;
+                } else {
+                t3 *= t3;
+                n3 = t3 * t3 * gi3.dot3(x3, y3, z3);
+                }
+                // Add contributions from each corner to get the final noise value.
+                // The result is scaled to return values in the interval [-1,1].
+                return 32.0 * (n0 + n1 + n2 + n3);
+
+            };
+
+            // Classic Perlin noise, 3D version
+            function fade(t) { return t*t*t*(t*(t*6-15)+10); }
+            function lerp(a, b, t) { return (1-t)*a + t*b; }
+
+            module.perlin3 = function(x, y, z) {
+                var X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z);
+                x = x - X; y = y - Y; z = z - Z;
+                X = X & 255; Y = Y & 255; Z = Z & 255;
+                var gi000 = gradP[X+perm[Y+perm[Z]]];
+                var gi001 = gradP[X+perm[Y+perm[Z+1]]];
+                var gi010 = gradP[X+perm[Y+1+perm[Z]]];
+                var gi011 = gradP[X+perm[Y+1+perm[Z+1]]];
+                var gi100 = gradP[X+1+perm[Y+perm[Z]]];
+                var gi101 = gradP[X+1+perm[Y+perm[Z+1]]];
+                var gi110 = gradP[X+1+perm[Y+1+perm[Z]]];
+                var gi111 = gradP[X+1+perm[Y+1+perm[Z+1]]];
+                var n000= gi000.dot3(x,y,z);
+                var n100= gi100.dot3(x-1,y,z);
+                var n010= gi010.dot3(x,y-1,z);
+                var n110= gi110.dot3(x-1,y-1,z);
+                var n001= gi001.dot3(x,y,z-1);
+                var n101= gi101.dot3(x-1,y,z-1);
+                var n011= gi011.dot3(x,y-1,z-1);
+                var n111= gi111.dot3(x-1,y-1,z-1);
+                var u = fade(x);
+                var v = fade(y);
+                var w = fade(z);
+                var nx00 = lerp(n000, n100, u);
+                var nx10 = lerp(n010, n110, u);
+                var nx01 = lerp(n001, n101, u);
+                var nx11 = lerp(n011, n111, u);
+                var nxy0 = lerp(nx00, nx10, v);
+                var nxy1 = lerp(nx01, nx11, v);
+                var nxyz = lerp(nxy0, nxy1, w);
+                return nxyz;
+            };
+
+            return module;
+        }());
+        // --- End Perlin Noise Implementation ---
+
+
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('dotCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Array to hold all the dot objects
+        let dots = [];
+        // Configuration for the dots grid and Perlin noise movement
+        const dotConfig = {
+            gridSpacing: 25,     // Distance between dots in the grid
+            radius: 1.5,         // Size of each dot
+            color: '#334155',     // Color of the dots (slate-700)
+            noiseMagnitude: 3.0, // Max distance dot moves from base position (pixels)
+            noiseSpeed: 0.003,   // How fast the noise pattern evolves over time
+            noisePositionScale: 0.05 // How much base position affects the noise input (higher = more spatial variation)
+        };
+
+        // Global time variable for Perlin noise evolution
+        let time = Math.random() * 1000; // Start time at a random offset
+
+        // Function to resize the canvas and re-initialize the dots grid
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Re-initialize dots on resize to rebuild the grid for the new size
+            initDotsGrid();
+        }
+
+        // Dot class - stores base position and current position
+        function Dot(baseX, baseY) {
+            this.baseX = baseX; // Original grid X position
+            this.baseY = baseY; // Original grid Y position
+            this.x = baseX;     // Current X position (for drawing)
+            this.y = baseY;     // Current Y position (for drawing)
+            // Store unique offsets for noise calculation to make dots move differently
+            this.noiseOffsetX = Math.random() * 1000;
+            this.noiseOffsetY = Math.random() * 1000;
+        }
+
+        // Function to initialize the dots array based on a grid layout
+        function initDotsGrid() {
+            dots = []; // Clear existing dots
+            const spacing = dotConfig.gridSpacing;
+            const startX = (canvas.width % spacing) / 2;
+            const startY = (canvas.height % spacing) / 2;
+
+            // Seed the noise generator for this grid instance
+            noise.seed(Math.random());
+
+            // Create dots based on grid spacing
+            for (let x = startX; x < canvas.width; x += spacing) {
+                for (let y = startY; y < canvas.height; y += spacing) {
+                    dots.push(new Dot(x, y));
+                }
+            }
+        }
+
+        // Function to update and draw dots using Perlin noise for smooth, uneasy movement
+        function animateDots() {
+            // Clear the canvas before drawing the next frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Set the fill color for the dots
+            ctx.fillStyle = dotConfig.color;
+
+            // Increment the global time for noise evolution
+            time += dotConfig.noiseSpeed;
+
+            // Loop through each dot
+            dots.forEach(dot => {
+                // Calculate noise inputs based on time and dot's properties
+                // Using 3D noise allows incorporating time and spatial position smoothly
+                const noiseInputX = dot.baseX * dotConfig.noisePositionScale + dot.noiseOffsetX;
+                const noiseInputY = dot.baseY * dotConfig.noisePositionScale + dot.noiseOffsetY;
+
+                // Get Perlin noise values (typically range from -1 to 1)
+                const noiseValueX = noise.perlin3(noiseInputX, noiseInputY, time);
+                const noiseValueY = noise.perlin3(noiseInputY, noiseInputX, time + 50); // Use different inputs for Y for less correlated movement
+
+                // Calculate offset based on noise value and magnitude
+                const offsetX = noiseValueX * dotConfig.noiseMagnitude;
+                const offsetY = noiseValueY * dotConfig.noiseMagnitude;
+
+                // Update current position by adding offset to the base position
+                dot.x = dot.baseX + offsetX;
+                dot.y = dot.baseY + offsetY;
+
+                // Draw the dot at its current noise-driven position
+                ctx.beginPath();
+                ctx.arc(Math.round(dot.x), Math.round(dot.y), dotConfig.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Request the next frame of the animation
+            requestAnimationFrame(animateDots);
+        }
+
+        // --- Initialization ---
+
+        // Set initial canvas size and create the grid
+        resizeCanvas(); // This calls initDotsGrid() internally
+        // Start the animation loop
+        animateDots();
+
+        // Add event listener for window resize
+        window.addEventListener('resize', resizeCanvas);
+
+    </script>
+
+</body>
+</html>
