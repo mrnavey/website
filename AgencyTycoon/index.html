@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trailer Agency Tycoon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @font-face {
+        font-family: 'LucideIcons';
+        src: url(https://cdn.jsdelivr.net/npm/lucide-static@latest/font/Lucide.ttf) format('truetype');
+      }
+      .lucide {
+        font-family: 'LucideIcons';
+        font-size: 1.25rem; line-height: 1;
+        -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        font-style: normal; font-variant: normal; text-rendering: auto;
+      }
+      button { transition: all 0.15s ease-in-out; }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      select:disabled { opacity: 0.6; cursor: not-allowed; background-color: #f3f4f6; }
+      .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+      .modal-content { background-color: #fefefe; margin: auto; padding: 2rem; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+      .modal-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+      .modal-close:hover, .modal-close:focus { color: black; text-decoration: none; cursor: pointer; }
+      .staff-card { border: 1px solid #e5e7eb; padding: 0.75rem; border-radius: 0.375rem; background-color: #ffffff; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+      .stage-progress-bar { height: 6px; background-color: #e5e7eb; border-radius: 9999px; overflow: hidden; }
+      .stage-progress { height: 100%; background-color: #fbbf24; border-radius: 9999px; transition: width 0.3s ease-out; }
+       .paused-indicator { animation: blink 1.5s linear infinite; }
+       @keyframes blink { 50% { opacity: 0.3; } }
+       /* Tier Label Styles */
+       .tier-label { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 9999px; margin-left: 0.5rem; vertical-align: middle; }
+       .tier-1 { background-color: #dbeafe; color: #1e40af; }
+       .tier-2 { background-color: #fed7aa; color: #9a3412; }
+       .tier-3 { background-color: #fecaca; color: #991b1b; }
+       /* Fire button style */
+       .fire-btn { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem; margin-left: 0.5rem; vertical-align: middle; }
+       .fire-btn:hover { background-color: #fecaca; border-color: #f87171; }
+       /* Assignment Modal Style */
+       .assign-staff-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
+       .assign-staff-item:last-child { border-bottom: none; }
+       .assign-staff-item label { flex-grow: 1; margin-right: 1rem; } /* Allow label to grow */
+    </style>
+    <script>
+        // Lucide Icons Reference
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6 md:p-8">
+
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-200">
+            <h1 class="text-3xl font-bold text-indigo-700 mb-2 md:mb-0">Trailer Agency Tycoon</h1>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm md:text-base">
+                <span class="flex items-center" title="Money"><i class="lucide mr-2 text-green-600">&#xe82e;</i> $<span id="money">10000</span></span>
+                <span class="flex items-center" title="Industry Insight Points"><i class="lucide mr-2 text-blue-600">&#xea48;</i> <span id="iip">0</span> IIP</span>
+                <span class="flex items-center" title="Reputation"><i class="lucide mr-2 text-yellow-500">&#xea0e;</i> <span id="reputation">10</span> Rep</span>
+                <span class="flex items-center" title="Current Day"><i class="lucide mr-2 text-gray-500">&#xe01e;</i> Day <span id="day">1</span></span>
+                <span class="flex items-center" title="Daily Salary Cost"><i class="lucide mr-2 text-red-500">&#xe82e;</i> $<span id="daily-salary">0</span>/day</span>
+                 <span class="flex items-center" title="Staff Count"><i class="lucide mr-2 text-purple-500">&#xea2c;</i> <span id="staff-count">0</span>/<span id="max-staff">2</span> Staff</span>
+                 <span id="pause-indicator" class="flex items-center text-orange-600 font-semibold hidden paused-indicator" title="Game Paused"><i class="lucide mr-1 text-sm">&#xe9b8;</i> Paused</span>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            <section class="md:col-span-2 space-y-6">
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Agency Actions</h2>
+                    <div class="flex flex-wrap gap-2">
+                         <button id="play-pause-btn" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
+                            <i id="play-pause-icon" class="lucide mr-2">&#xe9b8;</i> <span id="play-pause-text">Pause</span>
+                        </button>
+                         <button id="find-project-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
+                            <i class="lucide mr-2">&#xe8b5;</i> Find New Project
+                        </button>
+                        <button id="research-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
+                            <i class="lucide mr-2">&#xea48;</i> Develop Capabilities
+                        </button>
+                         <button id="hire-staff-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
+                            <i class="lucide mr-2">&#xe9c6;</i> Hire Staff
+                        </button>
+                         </div>
+                </div>
+
+                <div id="current-project-section" class="bg-gray-50 p-4 rounded-lg shadow-sm hidden">
+                     <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-xl font-semibold text-gray-700">Current Project</h2>
+                        <span id="current-project-tier-label" class="tier-label">Tier X</span>
+                     </div>
+                     <div id="current-project-details" class="space-y-2 text-sm mb-4"></div>
+                     <div id="current-project-stages" class="space-y-3 mb-4"></div>
+                      <div class="mt-4">
+                         <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
+                             <div id="project-progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-width duration-300 ease-out" style="width: 0%" title="Overall Project Progress"></div>
+                         </div>
+                         <p class="text-xs text-gray-600 text-center">Overall Progress: <span id="project-progress-text">0</span>% (<span id="project-days-left">X</span> days left)</p>
+                         <p class="text-xs text-gray-600 text-center mt-1">Assigned Team Power:
+                            <span title="Creative Editing"><i class="lucide text-xs align-bottom text-blue-500">&#xe845;</i><span id="team-power-ce">0</span></span> /
+                            <span title="Creative Design"><i class="lucide text-xs align-bottom text-red-500">&#xe80e;</i><span id="team-power-cd">0</span></span> /
+                            <span title="Technical"><i class="lucide text-xs align-bottom text-green-500">&#xea01;</i><span id="team-power-t">0</span></span> /
+                            <span title="Speed"><i class="lucide text-xs align-bottom text-gray-500">&#xe9ff;</i><span id="team-power-speed">0</span></span>
+                         </p>
+                         <p id="project-issues-display" class="text-xs text-red-600 text-center mt-1 hidden"><i class="lucide align-bottom text-xs mr-1">&#xe811;</i> Issues: <span id="project-issues-count">0</span></p>
+                     </div>
+                     <div class="mt-4 flex items-center justify-between gap-4">
+                         <div>
+                            <label for="project-focus-select" class="text-xs font-medium text-gray-600">Work Focus:</label>
+                            <select id="project-focus-select" class="text-xs border border-gray-300 rounded-md p-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="Balanced">Balanced</option>
+                                <option value="CE">Focus Editing (CE)</option>
+                                <option value="CD">Focus Design (CD)</option>
+                                <option value="T">Focus Technical (T)</option>
+                            </select>
+                         </div>
+                         {/* Manage Assignment Button */}
+                         <button id="manage-assignment-btn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
+                             <i class="lucide mr-2">&#xea2c;</i> Manage Assignment
+                         </button>
+                     </div>
+                 </div>
+
+                 <div id="available-projects-section" class="bg-gray-50 p-4 rounded-lg shadow-sm hidden">
+                      <h2 class="text-xl font-semibold mb-3 text-gray-700">Available Projects</h2>
+                      <div id="available-projects-list" class="space-y-3">
+                          <p class="text-gray-500">Click "Find New Project" to search for opportunities.</p>
+                      </div>
+                  </div>
+            </section>
+
+            <aside class="space-y-6">
+                 <div>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Founder Skills</h2>
+                    <ul class="text-sm space-y-1 list-disc list-inside bg-blue-50 p-3 rounded">
+                        <li title="Creative Editing"><i class="lucide text-xs align-bottom mr-1 text-blue-500">&#xe845;</i> Editing: <span id="skill-ce">10</span></li>
+                        <li title="Creative Design"><i class="lucide text-xs align-bottom mr-1 text-red-500">&#xe80e;</i> Design: <span id="skill-cd">10</span></li>
+                        <li title="Technical"><i class="lucide text-xs align-bottom mr-1 text-green-500">&#xea01;</i> Technical: <span id="skill-t">10</span></li>
+                        <li title="Speed"><i class="lucide text-xs align-bottom mr-1 text-gray-500">&#xe9ff;</i> Speed: <span id="skill-speed">5</span></li>
+                    </ul>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Your Team (<span id="staff-count-aside">0</span>/<span id="max-staff-aside">2</span>)</h2>
+                    <div id="staff-list" class="space-y-2">
+                         <p class="text-sm text-gray-500">You haven't hired anyone yet.</p>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Message Log</h2>
+                    <div id="message-log" class="h-48 overflow-y-auto bg-gray-100 p-3 rounded border border-gray-200 text-xs space-y-1">
+                        <p>Welcome to Trailer Agency Tycoon! Find your first project or hire some help. Time advances automatically.</p>
+                        </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+            <h3 id="modal-title" class="text-xl font-semibold mb-4">Modal Title</h3>
+            <div id="modal-body"></div>
+            <div id="modal-actions" class="mt-6 flex justify-end space-x-3">
+                {/* Modal actions added dynamically */}
+                <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Constants ---
+        const PROJECT_STAGES = [
+            { name: "Pre-Production", baseWeight: 0.20, cRatio: 0.7, tRatio: 0.3, ceRatio: 0.2, cdRatio: 0.8 }, { name: "Production", baseWeight: 0.60, cRatio: 0.6, tRatio: 0.4, ceRatio: 0.9, cdRatio: 0.1 }, { name: "Post-Production", baseWeight: 0.20, cRatio: 0.5, tRatio: 0.5, ceRatio: 0.5, cdRatio: 0.5 },
+        ];
+        const ISSUE_CHANCE = 0.08;
+        const ISSUE_PENALTY = 0.05;
+        const GAME_TICK_INTERVAL_MS = 1500;
+        const TIER_REWARD_MULTIPLIERS = { 1: 1.0, 2: 1.3, 3: 1.7 };
+        const PROMOTION_THRESHOLDS = { CE: [0, 50, 150, 350], CD: [0, 50, 150, 350], T:  [0, 50, 150, 350] };
+        const TITLES = { CE: ["", "Assistant Editor", "Junior Editor", "Editor", "Senior Editor"], CD: ["", "Junior Designer", "Designer", "Senior Designer", "Art Director"], T:  ["", "Associate Producer", "Producer", "Senior Producer", "Creative Director"] };
+        const PROMOTION_SALARY_INCREASE = { 1: 1.0, 2: 1.4, 3: 1.8, 4: 2.5 };
+        const PROMOTION_SKILL_BOOST = 3;
+        const FOCUS_BOOST_PERCENT = 0.65;
+
+        // --- Game State ---
+        let gameState = {
+            money: 10000, iip: 0, reputation: 10, day: 1,
+            playerSkills: { creativeEditing: 10, creativeDesign: 10, technical: 10, speed: 5 },
+            staff: [], maxStaff: 2, dailySalaryCost: 0,
+            availableProjects: [], currentProject: null, projectFocus: 'Balanced',
+            researchOptions: [
+                { id: 'r1', name: 'Improve Editing Techniques', cost: 25, effect: () => gameState.playerSkills.creativeEditing += 5, description: "+5 Founder C-Editing" }, { id: 'r6', name: 'Improve Design Principles', cost: 25, effect: () => gameState.playerSkills.creativeDesign += 5, description: "+5 Founder C-Design" }, { id: 'r2', name: 'Refine Technical Workflow', cost: 20, effect: () => gameState.playerSkills.technical += 5, description: "+5 Founder Technical" }, { id: 'r3', name: 'Optimize Work Process', cost: 30, effect: () => gameState.playerSkills.speed += 2, description: "+2 Founder Speed" }, { id: 'r4', name: 'Networking Course', cost: 50, effect: () => { gameState.reputation += 5; addLogMessage("Networking improved reputation slightly.", "info") }, description: "+5 Reputation" },
+                { id: 'r5', name: 'Expand Office', cost: 750, moneyCost: 750, effect: () => { gameState.maxStaff = 3; addLogMessage("Expanded the office.", "success") }, description: "+1 Max Staff Slot (Up to 3)" },
+            ],
+            unlockedTech: [],
+            projectIdCounter: 0, staffIdCounter: 0,
+            isPaused: false,
+        };
+        let gameInterval = null;
+
+        // --- UI Elements ---
+        // (Assume all elements are correctly retrieved by ID)
+        const moneyEl = document.getElementById('money'); const iipEl = document.getElementById('iip'); const reputationEl = document.getElementById('reputation'); const dayEl = document.getElementById('day'); const dailySalaryEl = document.getElementById('daily-salary'); const staffCountEl = document.getElementById('staff-count'); const maxStaffEl = document.getElementById('max-staff'); const staffCountAsideEl = document.getElementById('staff-count-aside'); const maxStaffAsideEl = document.getElementById('max-staff-aside'); const skillCeEl = document.getElementById('skill-ce'); const skillCdEl = document.getElementById('skill-cd'); const skillTEl = document.getElementById('skill-t'); const skillSpeedEl = document.getElementById('skill-speed'); const staffListEl = document.getElementById('staff-list'); const messageLogEl = document.getElementById('message-log'); const findProjectBtn = document.getElementById('find-project-btn'); const researchBtn = document.getElementById('research-btn'); const hireStaffBtn = document.getElementById('hire-staff-btn');
+        const manageAssignmentBtn = document.getElementById('manage-assignment-btn');
+        const availableProjectsSection = document.getElementById('available-projects-section'); const availableProjectsList = document.getElementById('available-projects-list'); const currentProjectSection = document.getElementById('current-project-section'); const currentProjectDetails = document.getElementById('current-project-details'); const currentProjectStagesEl = document.getElementById('current-project-stages'); const projectProgressBar = document.getElementById('project-progress-bar'); const projectProgressText = document.getElementById('project-progress-text'); const projectDaysLeft = document.getElementById('project-days-left'); const teamPowerCeEl = document.getElementById('team-power-ce'); const teamPowerCdEl = document.getElementById('team-power-cd'); const teamPowerTEl = document.getElementById('team-power-t'); const teamPowerSpeedEl = document.getElementById('team-power-speed'); const projectIssuesDisplay = document.getElementById('project-issues-display'); const projectIssuesCount = document.getElementById('project-issues-count'); const modal = document.getElementById('modal'); const modalTitle = document.getElementById('modal-title'); const modalBody = document.getElementById('modal-body'); const modalActions = document.getElementById('modal-actions'); const playPauseBtn = document.getElementById('play-pause-btn'); const playPauseIcon = document.getElementById('play-pause-icon'); const playPauseText = document.getElementById('play-pause-text'); const pauseIndicator = document.getElementById('pause-indicator');
+        const currentProjectTierLabel = document.getElementById('current-project-tier-label');
+        const projectFocusSelect = document.getElementById('project-focus-select');
+
+        // --- Game Loop ---
+        function startGameLoop() { if (gameInterval) clearInterval(gameInterval); gameInterval = setInterval(gameTick, GAME_TICK_INTERVAL_MS); gameState.isPaused = false; updatePlayPauseButton(); }
+        function stopGameLoop() { clearInterval(gameInterval); gameInterval = null; gameState.isPaused = true; updatePlayPauseButton(); }
+        function togglePause() { if (gameState.isPaused) startGameLoop(); else stopGameLoop(); }
+        function updatePlayPauseButton() { pauseIndicator.classList.toggle('hidden', !gameState.isPaused); if (gameState.isPaused) { playPauseIcon.innerHTML = '&#xe9d1;'; playPauseText.textContent = 'Resume'; playPauseBtn.classList.replace('bg-orange-500', 'bg-green-500'); playPauseBtn.classList.replace('hover:bg-orange-600', 'hover:bg-green-600'); } else { playPauseIcon.innerHTML = '&#xe9b8;'; playPauseText.textContent = 'Pause'; playPauseBtn.classList.replace('bg-green-500', 'bg-orange-500'); playPauseBtn.classList.replace('hover:bg-green-600', 'hover:bg-orange-600'); } }
+        function gameTick() { if (gameState.isPaused) return; gameState.day++; if (gameState.currentProject && gameState.currentProject.assignedStaffIds && gameState.currentProject.assignedStaffIds.length > 0) { applyWorkProgress(); } processDayEnd(); updateUI(); }
+        function processDayEnd() { gameState.money -= gameState.dailySalaryCost; checkPromotions(); if (gameState.currentProject) { const daysLeft = gameState.currentProject.daysToComplete - gameState.currentProject.daysWorked; if (daysLeft < 0) { if(gameState.currentProject){ failProject("Missed deadline!"); } } } if (gameState.money < 0 && gameInterval) { gameOver("You ran out of money!"); } }
+
+        // --- Core Logic Functions ---
+        function calculateDailySalary() { gameState.dailySalaryCost = gameState.staff.reduce((sum, staff) => sum + staff.salary, 0); }
+
+        function updateUI() {
+            try {
+                // Update header stats
+                moneyEl.textContent = gameState.money; iipEl.textContent = gameState.iip; reputationEl.textContent = gameState.reputation; dayEl.textContent = gameState.day; dailySalaryEl.textContent = gameState.dailySalaryCost; staffCountEl.textContent = gameState.staff.length; maxStaffEl.textContent = gameState.maxStaff; staffCountAsideEl.textContent = gameState.staff.length; maxStaffAsideEl.textContent = gameState.maxStaff;
+                // Update Founder Skills
+                skillCeEl.textContent = gameState.playerSkills.creativeEditing; skillCdEl.textContent = gameState.playerSkills.creativeDesign; skillTEl.textContent = gameState.playerSkills.technical; skillSpeedEl.textContent = gameState.playerSkills.speed;
+                // Update Staff List
+                renderStaffList();
+                // Update project sections visibility
+                availableProjectsSection.classList.toggle('hidden', gameState.currentProject !== null || gameState.availableProjects.length === 0);
+                currentProjectSection.classList.toggle('hidden', gameState.currentProject === null);
+                // Update available projects list
+                if (!gameState.currentProject) { renderAvailableProjects(); }
+                // Update current project details & team power
+                if (gameState.currentProject) {
+                    renderCurrentProject();
+                    updateTeamPowerDisplay();
+                    // Update focus dropdown state
+                    if(projectFocusSelect) { projectFocusSelect.value = gameState.projectFocus; projectFocusSelect.disabled = false; }
+                    if(manageAssignmentBtn) manageAssignmentBtn.disabled = false;
+                } else {
+                    teamPowerCeEl.textContent = '0'; teamPowerCdEl.textContent = '0'; teamPowerTEl.textContent = '0'; teamPowerSpeedEl.textContent = '0'; projectIssuesDisplay.classList.add('hidden');
+                    // Disable focus dropdown and manage button if no project
+                    if (projectFocusSelect) { projectFocusSelect.disabled = true; projectFocusSelect.value = 'Balanced'; }
+                    if(manageAssignmentBtn) manageAssignmentBtn.disabled = true;
+                }
+                // Update button states
+                const canHireMore = gameState.staff.length < gameState.maxStaff;
+                if (findProjectBtn) findProjectBtn.disabled = gameState.currentProject !== null;
+                if (researchBtn) researchBtn.disabled = false;
+                if (hireStaffBtn) hireStaffBtn.disabled = !canHireMore;
+                // Removed toggleWorkBtn logic
+            } catch (error) {
+                console.error("Error during updateUI:", error);
+                stopGameLoop();
+            }
+        }
+
+        function renderStaffList() { staffListEl.innerHTML = ''; if (gameState.staff.length === 0) { staffListEl.innerHTML = '<p class="text-sm text-gray-500">You haven\'t hired anyone yet.</p>'; return; } gameState.staff.forEach(staff => { const div = document.createElement('div'); div.className = 'staff-card text-xs'; let skillsHTML = ''; if (staff.track === 'CE') { skillsHTML = `CE:${staff.skills.creativeEditing} / S:${staff.skills.speed}`; } else if (staff.track === 'CD') { skillsHTML = `CD:${staff.skills.creativeDesign} / S:${staff.skills.speed}`; } else if (staff.track === 'T') { skillsHTML = `T:${staff.skills.technical} / S:${staff.skills.speed}`; } const statusColor = staff.status === 'Working' ? 'text-green-600 font-semibold' : 'text-purple-600'; div.innerHTML = `<div class="flex justify-between items-center mb-1"><strong class="text-teal-700">${staff.name}</strong><div><span class="text-gray-500 italic">${staff.title}</span><button class="fire-btn" onclick="fireStaff('${staff.id}')" title="Fire ${staff.name}">Fire</button></div></div><div class="text-gray-600">Skills: ${skillsHTML}</div><div class="text-red-600">Salary: $${staff.salary}/day</div><div class="${statusColor}">Status: ${staff.status}</div>`; staffListEl.appendChild(div); }); }
+        function addLogMessage(message, type = 'info') { const p = document.createElement('p'); p.textContent = `Day ${gameState.day}: ${message}`; if (type === 'success') p.classList.add('text-green-700'); else if (type === 'error') p.classList.add('text-red-700'); else if (type === 'warning') p.classList.add('text-yellow-700'); else if (type === 'issue') p.classList.add('text-orange-600'); else p.classList.add('text-gray-600'); messageLogEl.insertBefore(p, messageLogEl.firstChild); if (messageLogEl.children.length > 50) { messageLogEl.removeChild(messageLogEl.lastChild); } }
+
+        // --- Project Management ---
+        function generateProject() { gameState.projectIdCounter++; const id = gameState.projectIdCounter; const clients = ["Indie Films Co.", "Mediocre Movies", "Blockbuster Studios", "Prestige TV Net", "StreamFlix", "Arthouse Distributor", "Game Studio Promo"]; const types = ["Teaser", "Trailer", "TV Spot", "Social Campaign", "Sizzle Reel", "Gameplay Trailer"]; const genres = ["Action", "Comedy", "Drama", "Horror", "Sci-Fi", "Documentary", "Animation", "Thriller", "Fantasy", "Musical"]; const client = clients[Math.floor(Math.random() * clients.length)]; const type = types[Math.floor(Math.random() * types.length)]; const genre = genres[Math.floor(Math.random() * genres.length)]; let tier = 1; const rep = gameState.reputation; const randTier = Math.random(); if (rep > 70) { if (randTier < 0.2) tier = 1; else if (randTier < 0.7) tier = 2; else tier = 3; } else if (rep > 30) { if (randTier < 0.6) tier = 1; else tier = 2; } else { tier = 1; } const baseDifficulty = 50 + Math.floor(gameState.reputation * 1.2) + (tier * 15); const difficultyMultiplier = 1 + Math.random() * 0.6; let totalRequiredCreative = Math.max(25, Math.floor(baseDifficulty * difficultyMultiplier * (0.6 + Math.random() * 0.6))); let totalRequiredTechnical = Math.max(25, Math.floor(baseDifficulty * difficultyMultiplier * (0.6 + Math.random() * 0.6))); if (tier === 3) { totalRequiredCreative = Math.floor(totalRequiredCreative * 1.15); } const totalPointsRequired = totalRequiredCreative + totalRequiredTechnical; let tier1FocusCE = false; if (tier === 1) { tier1FocusCE = Math.random() < 0.5; } let runningTotalCE = 0; let runningTotalCD = 0; let runningTotalT = 0; const stages = PROJECT_STAGES.map(stageInfo => { const stageTotalPoints = Math.floor(totalPointsRequired * stageInfo.baseWeight); const stageCreativePoints = Math.floor(stageTotalPoints * stageInfo.cRatio); const stageTechnicalPoints = Math.max(1, stageTotalPoints - stageCreativePoints); let stageReqCE = 0; let stageReqCD = 0; if (tier === 1) { if (tier1FocusCE) { stageReqCE = Math.max(0, stageCreativePoints); stageReqCD = 0; } else { stageReqCD = Math.max(0, stageCreativePoints); stageReqCE = 0; } } else { if (stageCreativePoints > 0) { stageReqCE = Math.max(1, Math.floor(stageCreativePoints * stageInfo.ceRatio)); stageReqCD = Math.max(1, stageCreativePoints - stageReqCE); } else { stageReqCE = 0; stageReqCD = 0; } } runningTotalCE += stageReqCE; runningTotalCD += stageReqCD; runningTotalT += stageTechnicalPoints; return { name: stageInfo.name, requiredPoints: { ce: stageReqCE, cd: stageReqCD, t: stageTechnicalPoints }, progressPoints: { ce: 0, cd: 0, t: 0 } }; }); const teamSpeed = calculateTeamPower().speed; const estimatedDays = teamSpeed > 0 ? Math.ceil(totalPointsRequired / teamSpeed) : 99; const daysToComplete = Math.max(stages.length + 2, estimatedDays + Math.floor(Math.random() * 8) - 3); const rewardMultiplier = TIER_REWARD_MULTIPLIERS[tier] || 1.0; const baseFee = 800 + Math.floor(totalPointsRequired) * 5; const fee = Math.floor(baseFee * rewardMultiplier * (1 + gameState.reputation / 80) * (0.85 + Math.random() * 0.3)); const iipReward = Math.max(Math.floor(2 * rewardMultiplier), Math.floor((totalPointsRequired / 20 + gameState.reputation / 15) * rewardMultiplier)); const repReward = Math.max(Math.floor(1 * rewardMultiplier), Math.floor((totalPointsRequired / 40 + 1) * rewardMultiplier)); return { id: id, client: client, type: type, genre: genre, tier: tier, fee: fee, iipReward: iipReward, repReward: repReward, totalRequiredPoints: { creativeEditing: runningTotalCE, creativeDesign: runningTotalCD, technical: runningTotalT }, daysToComplete: daysToComplete, daysWorked: 0, issueCount: 0, stages: stages, currentStageIndex: 0, assignedStaffIds: [] }; }
+        function findNewProject() { console.log('Find Project button clicked. Current project:', gameState.currentProject); if (gameState.currentProject) { addLogMessage("Finish your current project first.", "warning"); return; } console.log('Proceeding to find projects...'); addLogMessage("Searching for new projects..."); gameState.availableProjects = []; const numProjects = Math.min(4, Math.max(1, Math.floor(gameState.reputation / 10))); for (let i = 0; i < numProjects; i++) { gameState.availableProjects.push(generateProject()); } if (gameState.availableProjects.length > 0) { addLogMessage(`Found ${gameState.availableProjects.length} potential projects.`, "success"); } else { addLogMessage("No suitable projects found.", "warning"); } updateUI(); }
+        function renderAvailableProjects() { availableProjectsList.innerHTML = ''; if (gameState.availableProjects.length === 0) { availableProjectsList.innerHTML = '<p class="text-gray-500">No projects available. Try "Find New Project".</p>'; return; } gameState.availableProjects.forEach(proj => { const div = document.createElement('div'); const totalReq = proj.totalRequiredPoints.creativeEditing + proj.totalRequiredPoints.creativeDesign + proj.totalRequiredPoints.technical; div.className = 'border border-gray-200 p-3 rounded-md bg-white shadow-sm hover:shadow-md transition-shadow'; div.innerHTML = `<div class="flex justify-between items-center"><h4 class="font-semibold text-indigo-700">${proj.client} - ${proj.type} (${proj.genre})</h4><span class="tier-label tier-${proj.tier}">Tier ${proj.tier}</span></div><p class="text-xs text-gray-600">Complexity: ${proj.totalRequiredPoints.creativeEditing} CE / ${proj.totalRequiredPoints.creativeDesign} CD / ${proj.totalRequiredPoints.technical} T (Total: ${totalReq})</p><p class="text-xs text-gray-600">Deadline: ${proj.daysToComplete} days</p><p class="text-xs text-gray-600">Budget: $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p><button class="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow" onclick="acceptProject(${proj.id})">Accept</button>`; availableProjectsList.appendChild(div); }); }
+
+        function acceptProject(projectId) { // Modified to show assignment modal automatically
+            const project = gameState.availableProjects.find(p => p.id === projectId);
+            if (project && !gameState.currentProject) {
+                gameState.currentProject = project; // Assign project
+                gameState.availableProjects = []; // Clear available list
+                gameState.projectFocus = 'Balanced'; // Reset focus
+                // Staff remain Idle until assigned
+                addLogMessage(`Accepted Tier ${project.tier} project: ${project.client} - ${project.type}. Assign staff.`, "info");
+                updateUI(); // Update UI first
+                showManageAssignmentModal(); // Then show the assignment modal
+            }
+         }
+
+        function renderCurrentProject() { if (!gameState.currentProject) return; const proj = gameState.currentProject; const daysLeft = proj.daysToComplete - proj.daysWorked; currentProjectTierLabel.textContent = `Tier ${proj.tier}`; currentProjectTierLabel.className = `tier-label tier-${proj.tier}`; currentProjectDetails.innerHTML = `<p><strong>Client:</strong> ${proj.client}</p><p><strong>Project:</strong> ${proj.type} (${proj.genre})</p><p><strong>Deadline:</strong> <span class="${daysLeft <= 3 ? 'text-red-600 font-semibold' : ''}">${daysLeft} days remaining</span></p><p><strong>Potential Budget:</strong> $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p>`; currentProjectStagesEl.innerHTML = ''; let totalProgressPoints = 0; let totalRequiredStagePoints = 0; proj.stages.forEach((stage, index) => { const stageReqTotal = stage.requiredPoints.ce + stage.requiredPoints.cd + stage.requiredPoints.t; const stageProgressTotal = stage.progressPoints.ce + stage.progressPoints.cd + stage.progressPoints.t; const stageProgressPercent = stageReqTotal > 0 ? Math.min(100, Math.floor((stageProgressTotal / stageReqTotal) * 100)) : 100; const isActive = index === proj.currentStageIndex; const isComplete = (stage.progressPoints.ce >= stage.requiredPoints.ce && stage.progressPoints.cd >= stage.requiredPoints.cd && stage.progressPoints.t >= stage.requiredPoints.t); totalProgressPoints += stageProgressTotal; totalRequiredStagePoints += stageReqTotal; const stageDiv = document.createElement('div'); stageDiv.className = `text-xs border-l-4 ${isActive ? 'border-amber-400 pl-2 bg-amber-50' : (isComplete ? 'border-green-400 pl-2 opacity-70' : 'border-gray-300 pl-2 opacity-70') } p-2 rounded-r-md`; stageDiv.innerHTML = `<div class="font-medium ${isActive ? 'text-amber-700' : (isComplete ? 'text-green-700' : 'text-gray-600')}">${stage.name} ${isActive ? '(Active)' : (isComplete ? '(Completed)' : '')}</div><div>Req: ${stage.requiredPoints.ce} CE / ${stage.requiredPoints.cd} CD / ${stage.requiredPoints.t} T</div><div>Prog: ${stage.progressPoints.ce} CE / ${stage.progressPoints.cd} CD / ${stage.progressPoints.t} T (${stageProgressPercent}%)</div>${isActive || isComplete ? `<div class="stage-progress-bar mt-1"><div class="stage-progress" style="width: ${stageProgressPercent}%"></div></div>` : ''}`; currentProjectStagesEl.appendChild(stageDiv); }); const overallProgressPercent = totalRequiredStagePoints > 0 ? Math.min(100, Math.floor((totalProgressPoints / totalRequiredStagePoints) * 100)) : 100; projectProgressBar.style.width = `${overallProgressPercent}%`; projectProgressText.textContent = overallProgressPercent; projectDaysLeft.textContent = daysLeft; if (proj.issueCount > 0) { projectIssuesCount.textContent = proj.issueCount; projectIssuesDisplay.classList.remove('hidden'); } else { projectIssuesDisplay.classList.add('hidden'); } }
+        function calculateTeamPower() { let totalCE = gameState.playerSkills.creativeEditing; let totalCD = gameState.playerSkills.creativeDesign; let totalT = gameState.playerSkills.technical; let totalSpeed = gameState.playerSkills.speed; const assignedIds = gameState.currentProject ? gameState.currentProject.assignedStaffIds : []; gameState.staff.forEach(staff => { if (assignedIds.includes(staff.id)) { totalCE += staff.skills.creativeEditing; totalCD += staff.skills.creativeDesign; totalT += staff.skills.technical; totalSpeed += staff.skills.speed; } }); return { creativeEditing: totalCE, creativeDesign: totalCD, technical: totalT, speed: totalSpeed }; }
+        function updateTeamPowerDisplay() { const power = calculateTeamPower(); teamPowerCeEl.textContent = power.creativeEditing; teamPowerCdEl.textContent = power.creativeDesign; teamPowerTEl.textContent = power.technical; teamPowerSpeedEl.textContent = power.speed; }
+        function applyWorkProgress() { if (!gameState.currentProject || !gameState.currentProject.assignedStaffIds || gameState.currentProject.assignedStaffIds.length === 0) return; const proj = gameState.currentProject; if (proj.currentStageIndex >= proj.stages.length) return; const currentStage = proj.stages[proj.currentStageIndex]; const teamPower = calculateTeamPower(); const pointsToday = teamPower.speed; let creativeEditingPoints = 0; let creativeDesignPoints = 0; let technicalPoints = 0; const focus = gameState.projectFocus; const totalSkillCE = teamPower.creativeEditing; const totalSkillCD = teamPower.creativeDesign; const totalSkillT = teamPower.technical; const totalSkillAll = totalSkillCE + totalSkillCD + totalSkillT; if (pointsToday > 0 && totalSkillAll > 0) { if (focus === 'Balanced') { const creativePortion = (totalSkillCE + totalSkillCD) / totalSkillAll; const pointsCreativeTotal = pointsToday * creativePortion; const totalCreativeSkill = totalSkillCE + totalSkillCD; if (totalCreativeSkill > 0) { creativeEditingPoints = Math.floor(pointsCreativeTotal * (totalSkillCE / totalCreativeSkill)); creativeDesignPoints = Math.max(0, Math.floor(pointsCreativeTotal - creativeEditingPoints)); } technicalPoints = Math.max(0, pointsToday - creativeEditingPoints - creativeDesignPoints); } else { let focusedPoints = Math.floor(pointsToday * FOCUS_BOOST_PERCENT); let remainingPoints = pointsToday - focusedPoints; if (focus === 'CE') { creativeEditingPoints = focusedPoints; const nonFocusTotal = totalSkillCD + totalSkillT; if (nonFocusTotal > 0) { creativeDesignPoints = Math.floor(remainingPoints * (totalSkillCD / nonFocusTotal)); technicalPoints = remainingPoints - creativeDesignPoints; } else { technicalPoints = remainingPoints; } } else if (focus === 'CD') { creativeDesignPoints = focusedPoints; const nonFocusTotal = totalSkillCE + totalSkillT; if (nonFocusTotal > 0) { creativeEditingPoints = Math.floor(remainingPoints * (totalSkillCE / nonFocusTotal)); technicalPoints = remainingPoints - creativeEditingPoints; } else { technicalPoints = remainingPoints; } } else if (focus === 'T') { technicalPoints = focusedPoints; const nonFocusTotal = totalSkillCE + totalSkillCD; if (nonFocusTotal > 0) { creativeEditingPoints = Math.floor(remainingPoints * (totalSkillCE / nonFocusTotal)); creativeDesignPoints = remainingPoints - creativeEditingPoints; } else { technicalPoints += remainingPoints; } } } } creativeEditingPoints = Math.max(0, creativeEditingPoints); creativeDesignPoints = Math.max(0, creativeDesignPoints); technicalPoints = Math.max(0, technicalPoints); currentStage.progressPoints.ce += creativeEditingPoints; currentStage.progressPoints.cd += creativeDesignPoints; currentStage.progressPoints.t += technicalPoints; proj.daysWorked++; if (Math.random() < ISSUE_CHANCE) { proj.issueCount++; addLogMessage(`An issue came up! (Total: ${proj.issueCount})`, "issue"); } if (currentStage.progressPoints.ce >= currentStage.requiredPoints.ce && currentStage.progressPoints.cd >= currentStage.requiredPoints.cd && currentStage.progressPoints.t >= currentStage.requiredPoints.t) { addLogMessage(`Stage "${currentStage.name}" completed!`, "success"); proj.currentStageIndex++; if (proj.currentStageIndex >= proj.stages.length) { completeProject(); } else { addLogMessage(`Moving to stage "${proj.stages[proj.currentStageIndex].name}".`, "info"); } } }
+        // Removed toggleWork function
+        function completeProject() { const proj = gameState.currentProject; if (!proj) return; gameState.staff.forEach(staff => { if (proj.assignedStaffIds.includes(staff.id)) { staff.status = 'Idle'; } }); let baseQuality = 1.0; const daysEarly = proj.daysToComplete - proj.daysWorked; const timeBonus = daysEarly > 0 ? 1 + (daysEarly * 0.05) : 1; const issuePenaltyMultiplier = Math.max(0.1, 1.0 - (proj.issueCount * ISSUE_PENALTY)); const finalMultiplier = Math.max(0.1, Math.min(1.5, baseQuality * timeBonus * issuePenaltyMultiplier)); const finalFee = Math.floor(proj.fee * finalMultiplier); const finalIIP = Math.floor(proj.iipReward * finalMultiplier); const finalRep = Math.floor(proj.repReward * finalMultiplier); gameState.money += finalFee; gameState.iip += finalIIP; gameState.reputation += finalRep; let message = `Project Completed: ${proj.client} - ${proj.type}. Quality: ${(finalMultiplier * 100).toFixed(0)}% (${proj.issueCount} issues). Earned $${finalFee}, ${finalIIP} IIP, ${finalRep} Rep.`; addLogMessage(message, "success"); showModal("Project Completed!", `<p><strong>Project:</strong> ${proj.client} - ${proj.type} (Tier ${proj.tier})</p><p>Your agency delivered the project!</p><p class="mt-2"><strong>Performance:</strong></p><ul class="list-disc list-inside text-sm"><li>Final Quality Score: ${(finalMultiplier * 100).toFixed(0)}%</li><li>Days Remaining: ${daysEarly >= 0 ? daysEarly : 'N/A (On time)'}</li><li>Unresolved Issues: ${proj.issueCount}</li></ul><p class="mt-2"><strong>Outcome:</strong></p><ul class="list-disc list-inside text-sm"><li>Budget Earned: <span class="text-green-600 font-semibold">$${finalFee}</span></li><li>IIP Gained: <span class="text-blue-600 font-semibold">${finalIIP}</span></li><li>Reputation Change: <span class="text-yellow-500 font-semibold">${finalRep > 0 ? '+' : ''}${finalRep}</span></li></ul>`); gameState.currentProject = null; }
+        function failProject(reason) { const proj = gameState.currentProject; if (!proj) return; gameState.staff.forEach(staff => { if (proj.assignedStaffIds.includes(staff.id)) { staff.status = 'Idle'; } }); const repPenalty = Math.max(1, Math.floor(proj.repReward * 1.5)); const iipPenalty = Math.max(0, Math.floor(proj.iipReward * 0.5)); gameState.reputation = Math.max(0, gameState.reputation - repPenalty); let message = `Project Failed: ${proj.client} - ${proj.type} (Tier ${proj.tier}). Reason: ${reason}. Lost ${repPenalty} Rep.`; addLogMessage(message, "error"); showModal("Project Failed!", `<p><strong>Project:</strong> ${proj.client} - ${proj.type} (Tier ${proj.tier})</p><p class="text-red-600">Unfortunately, the project could not be completed successfully.</p><p class="mt-2"><strong>Reason:</strong> ${reason}</p><p class="mt-2"><strong>Penalties:</strong></p><ul class="list-disc list-inside text-sm"><li>Reputation: <span class="text-red-600 font-semibold">-${repPenalty}</span></li><li>IIP: <span class="text-red-600 font-semibold">-${iipPenalty} (Potential)</span></li></ul>`); gameState.currentProject = null; }
+        // --- Staff Management ---
+        function generateCandidate() { gameState.staffIdCounter++; const id = `staff${gameState.staffIdCounter}`; const names = ["Alex", "Ben", "Chloe", "David", "Eva", "Finn", "Grace", "Hugo", "Isla", "Jack", "Kate", "Liam"]; const name = names[Math.floor(Math.random() * names.length)] + ` ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}.`; const tracks = ['CE', 'CD', 'T']; const track = tracks[Math.floor(Math.random() * tracks.length)]; const skillBase = 5 + Math.floor(gameState.reputation / 10); let skills = { creativeEditing: 0, creativeDesign: 0, technical: 0, speed: 0 }; let primarySkillValue = Math.max(1, skillBase + Math.floor(Math.random() * 6) - 3); skills.speed = Math.max(1, Math.floor(skillBase / 2) + Math.floor(Math.random() * 4) - 2); let primarySkillSum = 0; if (track === 'CE') { skills.creativeEditing = primarySkillValue; primarySkillSum = skills.creativeEditing; } else if (track === 'CD') { skills.creativeDesign = primarySkillValue; primarySkillSum = skills.creativeDesign; } else { skills.technical = primarySkillValue; primarySkillSum = skills.technical; } const level = 1; const title = TITLES[track][level]; const baseSalary = 10; const skillSalary = Math.floor((primarySkillSum + skills.speed) * 0.8); const salary = Math.max(15, baseSalary + skillSalary); return { id, name, track, level, title, skills, salary, status: 'Idle' }; }
+        function showHireModal() { console.log("Show Hire Modal called."); if (gameState.staff.length >= gameState.maxStaff) { addLogMessage("Cannot hire: Agency full.", "warning"); return; } let candidatesHTML = '<p class="mb-4">Review the available candidates. Hiring costs are daily salaries.</p><div class="space-y-3">'; const numCandidates = 2; for (let i = 0; i < numCandidates; i++) { const candidate = generateCandidate(); const canAfford = gameState.money >= candidate.salary; let skillsDisplay = ''; if (candidate.track === 'CE') skillsDisplay = `CE:${candidate.skills.creativeEditing} / S:${candidate.skills.speed}`; else if (candidate.track === 'CD') skillsDisplay = `CD:${candidate.skills.creativeDesign} / S:${candidate.skills.speed}`; else skillsDisplay = `T:${candidate.skills.technical} / S:${candidate.skills.speed}`; candidatesHTML += `<div class="staff-card ${!canAfford ? 'opacity-60' : ''}"><div class="flex justify-between items-center mb-1"><strong class="text-teal-700">${candidate.name}</strong><span class="text-gray-500 italic">${candidate.title} (${candidate.track})</span></div><div class="text-xs text-gray-600">Skills: ${skillsDisplay}</div><div class="text-xs text-red-600">Salary: $${candidate.salary}/day</div><div class="mt-2 flex justify-end"><button class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed" onclick='hireStaffMember(${JSON.stringify(candidate)})' ${!canAfford ? 'disabled' : ''}>${canAfford ? 'Hire' : 'Cannot Afford'}</button></div></div>`; } candidatesHTML += '</div>'; showModal("Hire New Staff", candidatesHTML); }
+        function hireStaffMember(candidateData) { if (gameState.staff.length >= gameState.maxStaff) { addLogMessage("Agency is full, cannot hire.", "error"); closeModal(); updateUI(); return; } if (gameState.money < candidateData.salary) { addLogMessage(`Cannot afford ${candidateData.name}'s salary ($${candidateData.salary}).`, "error"); closeModal(); updateUI(); return; } candidateData.status = 'Idle'; gameState.staff.push(candidateData); calculateDailySalary(); addLogMessage(`Hired ${candidateData.name} (${candidateData.title}).`, "success"); closeModal(); updateUI(); }
+        function checkPromotions() { gameState.staff.forEach(staff => { if (staff.level >= 4) return; const track = staff.track; const currentLevel = staff.level; const nextLevelThreshold = PROMOTION_THRESHOLDS[track][currentLevel]; let primarySkill = 0; if (track === 'CE') primarySkill = staff.skills.creativeEditing; else if (track === 'CD') primarySkill = staff.skills.creativeDesign; else primarySkill = staff.skills.technical; if (primarySkill >= nextLevelThreshold) { staff.level++; staff.title = TITLES[track][staff.level]; const salaryMultiplier = PROMOTION_SALARY_INCREASE[staff.level] || 1.0; staff.salary = Math.floor(staff.salary * salaryMultiplier); if (track === 'CE') staff.skills.creativeEditing += PROMOTION_SKILL_BOOST; else if (track === 'CD') staff.skills.creativeDesign += PROMOTION_SKILL_BOOST; else staff.skills.technical += PROMOTION_SKILL_BOOST; staff.skills.speed += Math.floor(PROMOTION_SKILL_BOOST / 2); addLogMessage(`${staff.name} has been promoted to ${staff.title}! Salary increased to $${staff.salary}.`, "success"); calculateDailySalary(); } }); }
+        function fireStaff(staffId) { console.log('fireStaff called with ID:', staffId); const staffIndex = gameState.staff.findIndex(s => s.id === staffId); if (staffIndex === -1) { console.error(`Staff member with ID ${staffId} not found.`); return; } const staffMember = gameState.staff[staffIndex]; if (gameState.currentProject && gameState.currentProject.assignedStaffIds.includes(staffId)) { gameState.currentProject.assignedStaffIds = gameState.currentProject.assignedStaffIds.filter(id => id !== staffId); addLogMessage(`${staffMember.name} removed from current project.`, "warning"); } gameState.staff.splice(staffIndex, 1); calculateDailySalary(); addLogMessage(`${staffMember.name} has been fired.`, "warning"); updateUI(); }
+
+        // --- Updated Assignment Modal Functions ---
+        function showManageAssignmentModal() {
+            if (!gameState.currentProject) { addLogMessage("No active project to manage assignments for.", "warning"); return; }
+            console.log("Show Manage Assignment Modal called.");
+            let modalHTML = `<p class="mb-4">Manage staff assignment for: <strong>${gameState.currentProject.client} - ${gameState.currentProject.type}</strong></p>`;
+            modalHTML += '<form id="assignment-form"><ul class="space-y-2 max-h-60 overflow-y-auto">';
+            if (gameState.staff.length === 0) { modalHTML += '<li class="text-gray-500">You have no staff to assign.</li>'; }
+            else {
+                gameState.staff.forEach(staff => {
+                    let skillsDisplay = '';
+                    if (staff.track === 'CE') skillsDisplay = `CE:${staff.skills.creativeEditing} / S:${staff.skills.speed}`;
+                    else if (staff.track === 'CD') skillsDisplay = `CD:${staff.skills.creativeDesign} / S:${staff.skills.speed}`;
+                    else skillsDisplay = `T:${staff.skills.technical} / S:${staff.skills.speed}`;
+                    const isAssigned = gameState.currentProject.assignedStaffIds.includes(staff.id);
+                    modalHTML += `
+                        <li class="assign-staff-item text-sm">
+                            <label class="flex-grow cursor-pointer">
+                                <strong class="text-teal-700">${staff.name}</strong> (${staff.title}) - <span class="${isAssigned ? 'text-green-600 font-semibold' : 'text-purple-600'}">${isAssigned ? 'Working' : 'Idle'}</span>
+                                <span class="block text-xs text-gray-500">${skillsDisplay}</span>
+                            </label>
+                            <input type="checkbox" name="assignStaff" value="${staff.id}" class="form-checkbox h-5 w-5 text-indigo-600 rounded" ${isAssigned ? 'checked' : ''}>
+                        </li>
+                    `;
+                });
+            }
+            modalHTML += '</ul></form>';
+            modalActions.innerHTML = '';
+            const confirmButton = document.createElement('button');
+            confirmButton.className = 'bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md';
+            confirmButton.textContent = 'Confirm Changes';
+            confirmButton.onclick = () => { const form = document.getElementById('assignment-form'); if (form) { const selectedCheckboxes = form.querySelectorAll('input[name="assignStaff"]:checked'); const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value); confirmAssignment(selectedIds); } else { console.error("Assignment form not found in modal."); } };
+            modalActions.appendChild(confirmButton);
+             const closeButton = document.createElement('button');
+             closeButton.className = 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md';
+             closeButton.textContent = 'Cancel';
+             closeButton.onclick = closeModal;
+             modalActions.appendChild(closeButton);
+            showModal("Manage Project Assignment", modalHTML);
+        }
+
+        function confirmAssignment(newlySelectedIds) {
+            if (!gameState.currentProject) return;
+            const previouslyAssignedIds = gameState.currentProject.assignedStaffIds || [];
+            gameState.currentProject.assignedStaffIds = newlySelectedIds;
+            let assignedNames = []; let unassignedNames = [];
+            gameState.staff.forEach(staff => {
+                const isNowAssigned = newlySelectedIds.includes(staff.id);
+                const wasPreviouslyAssigned = previouslyAssignedIds.includes(staff.id);
+                if (isNowAssigned && !wasPreviouslyAssigned) { staff.status = 'Working'; assignedNames.push(staff.name); }
+                else if (!isNowAssigned && wasPreviouslyAssigned) { staff.status = 'Idle'; unassignedNames.push(staff.name); }
+                else if (isNowAssigned) { staff.status = 'Working'; }
+                else { staff.status = 'Idle'; }
+            });
+            if (assignedNames.length > 0) { addLogMessage(`Assigned ${assignedNames.join(', ')} to the project.`, "info"); }
+            if (unassignedNames.length > 0) { addLogMessage(`Unassigned ${unassignedNames.join(', ')} from the project.`, "info"); }
+            if (newlySelectedIds.length === 0) { addLogMessage(`No staff currently assigned. Work will not progress.`, "warning"); }
+            else if (assignedNames.length === 0 && unassignedNames.length === 0) { addLogMessage(`Staff assignment unchanged.`, "info"); }
+            closeModal(); updateUI();
+        }
+
+
+        // --- Research ---
+        function showResearchModal() { console.log("Show Research Modal called."); let researchHTML = '<p class="mb-4">Select a capability to develop using your Industry Insight Points (IIP).</p><ul class="space-y-3">'; gameState.researchOptions.forEach(opt => { const isUnlocked = gameState.unlockedTech.includes(opt.id); const canAffordIIP = gameState.iip >= opt.cost; const canAffordMoney = opt.moneyCost ? gameState.money >= opt.moneyCost : true; const canAfford = canAffordIIP && canAffordMoney; let buttonText = `Cost: ${opt.cost} IIP`; if (opt.moneyCost) { buttonText += ` & $${opt.moneyCost}`; } let researchDisabled = !canAfford || isUnlocked; let disabledReason = ""; if (isUnlocked) disabledReason = " (Unlocked)"; else if (!canAffordIIP) disabledReason = " (Need IIP)"; else if (!canAffordMoney) disabledReason = " (Need $)"; if (opt.id === 'r5' && gameState.maxStaff >= 3) { researchDisabled = true; disabledReason = " (Office Maxed)"; } researchHTML += `<li class="border p-3 rounded-md ${researchDisabled ? 'bg-gray-100 opacity-70' : 'bg-white'}"><div class="flex justify-between items-center"><div><strong class="text-indigo-700">${opt.name}</strong> ${disabledReason}<p class="text-xs text-gray-600">${opt.description}</p></div><button class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed" onclick="purchaseResearch('${opt.id}')" ${researchDisabled ? 'disabled' : ''}>${buttonText}</button></div></li>`; }); researchHTML += '</ul>'; showModal("Develop Capabilities", researchHTML); }
+        function purchaseResearch(researchId) { const option = gameState.researchOptions.find(opt => opt.id === researchId); if (!option) return; const isUnlocked = gameState.unlockedTech.includes(option.id); const canAffordIIP = gameState.iip >= option.cost; const canAffordMoney = option.moneyCost ? gameState.money >= option.moneyCost : true; if (option.id === 'r5' && gameState.maxStaff >= 3) { addLogMessage("Office already expanded.", "warning"); return; } if (option && canAffordIIP && canAffordMoney && !isUnlocked) { gameState.iip -= option.cost; if (option.moneyCost) { gameState.money -= option.moneyCost; } option.effect(); if (option.id === 'r5') { gameState.unlockedTech.push(option.id); } addLogMessage(`Researched: ${option.name}.`, "success"); closeModal(); updateUI(); } else { let reason = "Cannot complete research."; if (isUnlocked) reason = "Already researched."; else if (!canAffordIIP) reason = "Not enough IIP."; else if (!canAffordMoney) reason = "Not enough Money."; addLogMessage(reason, "warning"); } }
+
+        // --- Game Over ---
+        function gameOver(reason) { stopGameLoop(); addLogMessage(`Game Over: ${reason}`, "error"); showModal( "Game Over!", `<p class="text-red-600 font-semibold">${reason}</p><p>Your agency couldn't survive. You lasted ${gameState.day} days and reached Reputation ${gameState.reputation}.</p>`, true ); if(findProjectBtn) findProjectBtn.disabled = true; if(researchBtn) researchBtn.disabled = true; if(hireStaffBtn) hireStaffBtn.disabled = true; if(manageAssignmentBtn) manageAssignmentBtn.disabled = true; if(playPauseBtn) playPauseBtn.disabled = true; }
+
+        // --- Modal Functions ---
+        function showModal(title, bodyHTML, isGameOver = false) { const wasPaused = gameState.isPaused; if(!wasPaused) stopGameLoop(); modalTitle.textContent = title; modalBody.innerHTML = bodyHTML; /* Modal actions added dynamically for assignment modal */ if(title !== "Assign Staff" && title !== "Manage Project Assignment") { modalActions.innerHTML = ''; if (!isGameOver) { const closeButton = document.createElement('button'); closeButton.className = 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md'; closeButton.textContent = 'Close'; closeButton.onclick = () => { closeModal(); if(!wasPaused) startGameLoop(); }; modalActions.appendChild(closeButton); } else { const restartButton = document.createElement('button'); restartButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md'; restartButton.textContent = 'Restart Game'; restartButton.onclick = () => window.location.reload(); modalActions.appendChild(restartButton); } } modal.style.display = 'flex'; }
+        function closeModal() { modal.style.display = 'none'; updateUI(); }
+        window.onclick = function(event) { if (event.target == modal) { const wasPaused = gameState.isPaused; closeModal(); if(!wasPaused) startGameLoop(); } }
+
+        // --- Event Listeners ---
+        if (playPauseBtn) playPauseBtn.addEventListener('click', togglePause); else console.error("playPauseBtn not found");
+        if (findProjectBtn) { findProjectBtn.addEventListener('click', findNewProject); console.log("Attached listener to findProjectBtn"); } else console.error("findProjectBtn not found");
+        if (researchBtn) { researchBtn.addEventListener('click', showResearchModal); console.log("Attached listener to researchBtn"); } else console.error("researchBtn not found");
+        if (hireStaffBtn) { hireStaffBtn.addEventListener('click', showHireModal); console.log("Attached listener to hireStaffBtn"); } else console.error("hireStaffBtn not found");
+        // Removed toggleWorkBtn listener
+        if (manageAssignmentBtn) { manageAssignmentBtn.addEventListener('click', showManageAssignmentModal); console.log("Attached listener to manageAssignmentBtn"); } else console.error("manageAssignmentBtn not found"); // Added listener
+        if (projectFocusSelect) { projectFocusSelect.addEventListener('change', (event) => { gameState.projectFocus = event.target.value; console.log(`Project focus changed to: ${gameState.projectFocus}`); }); console.log("Attached listener to projectFocusSelect"); } else { console.error("projectFocusSelect not found"); }
+
+        // --- Initial Game Setup ---
+         document.addEventListener('DOMContentLoaded', () => {
+            try {
+                console.log("DOM Loaded, starting game setup...");
+                calculateDailySalary();
+                addLogMessage("Agency founded. Initial funds: $10000.", "info");
+                updateUI();
+                startGameLoop();
+                console.log("Game setup complete.");
+            } catch (error) {
+                console.error("Error during initial game setup:", error);
+                addLogMessage("FATAL ERROR during game initialization. Check console.", "error");
+            }
+        });
+
+    </script>
+
+</body>
+</html>
