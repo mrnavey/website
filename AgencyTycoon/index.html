@@ -38,12 +38,14 @@
            height: 1.1em;
            margin-right: 0.3em;
            vertical-align: -0.15em; /* Align better with text */
+           filter: brightness(0) invert(1); /* Make icons white */
        }
        .icon-sm { /* Smaller icon for pause indicator */
             width: 0.9em;
             height: 0.9em;
             margin-right: 0.2em;
             vertical-align: -0.1em;
+            filter: brightness(0) invert(1); /* Make icons white */
        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,7 +56,10 @@
     <div class="max-w-6xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6 md:p-8">
 
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-700">
-            <h1 class="text-3xl font-bold text-indigo-400 mb-2 md:mb-0">Trailer Agency Tycoon</h1>
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-400 mb-2 md:mb-0">Trailer Agency Tycoon</h1>
+                <p class="text-sm text-gray-400">Founder: <span id="founder-name-display" class="text-teal-400"></span></p>
+            </div>
             <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm md:text-base">
                 <span class="flex items-center text-green-600" title="Money"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dollar-sign.svg" class="icon" alt="Money"/> $<span id="money" class="text-gray-200">10000</span></span>
                 <span class="flex items-center text-blue-600" title="Industry Insight Points"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brain-circuit.svg" class="icon" alt="IIP"/> <span id="iip" class="text-gray-200">0</span> IIP</span>
@@ -133,7 +138,7 @@
 
             <aside class="space-y-6">
                  <div>
-                    <h2 class="text-xl font-semibold mb-3 text-gray-300">Founder Skills</h2>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-300"><span id="founder-name-skills" class="text-teal-400"></span>'s Skills</h2>
                     <ul class="text-sm space-y-1 list-disc list-inside bg-gray-700 p-3 rounded">
                         <li title="Creative Editing"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/edit-3.svg" class="icon text-blue-500" alt="CE"/> Editing: <span id="skill-ce">10</span></li>
                         <li title="Creative Design"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brush.svg" class="icon text-red-500" alt="CD"/> Design: <span id="skill-cd">10</span></li>
@@ -169,6 +174,19 @@
         </div>
     </div>
 
+    <div id="founder-name-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-4">Welcome to Trailer Agency Tycoon!</h3>
+            <div class="mb-4">
+                <p class="mb-2">Please enter your name to begin your journey as a trailer agency founder:</p>
+                <input type="text" id="founder-name-input" class="w-full p-2 rounded-md bg-gray-700 border border-gray-600 text-white" placeholder="Enter your name" maxlength="30">
+            </div>
+            <div class="flex justify-end">
+                <button id="start-game-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md">Start Game</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Game Constants ---
         const PROJECT_STAGES = [
@@ -187,6 +205,7 @@
         // --- Game State ---
         let gameState = {
             money: 10000, iip: 0, reputation: 10, day: 1,
+            founderName: "",
             playerSkills: { creativeEditing: 10, creativeDesign: 10, technical: 10, speed: 5 },
             staff: [], maxStaff: 2, dailySalaryCost: 0,
             availableProjects: [], currentProject: null, projectFocus: 'Balanced',
@@ -237,6 +256,9 @@
             try {
                 // Update header stats
                 moneyEl.textContent = gameState.money; iipEl.textContent = gameState.iip; reputationEl.textContent = gameState.reputation; dayEl.textContent = gameState.day; dailySalaryEl.textContent = gameState.dailySalaryCost; staffCountEl.textContent = gameState.staff.length; maxStaffEl.textContent = gameState.maxStaff; staffCountAsideEl.textContent = gameState.staff.length; maxStaffAsideEl.textContent = gameState.maxStaff;
+                // Update founder name display
+                document.getElementById('founder-name-display').textContent = gameState.founderName;
+                document.getElementById('founder-name-skills').textContent = gameState.founderName;
                 // Update Founder Skills
                 skillCeEl.textContent = gameState.playerSkills.creativeEditing; skillCdEl.textContent = gameState.playerSkills.creativeDesign; skillTEl.textContent = gameState.playerSkills.technical; skillSpeedEl.textContent = gameState.playerSkills.speed;
                 // Update Staff List
@@ -396,14 +418,40 @@
         if (projectFocusSelect) { projectFocusSelect.addEventListener('change', (event) => { gameState.projectFocus = event.target.value; console.log(`Project focus changed to: ${gameState.projectFocus}`); }); console.log("Attached listener to projectFocusSelect"); } else { console.error("projectFocusSelect not found"); }
 
         // --- Initial Game Setup ---
-         document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log("DOM Loaded, starting game setup...");
-                calculateDailySalary();
-                addLogMessage("Agency founded. Initial funds: $10000.", "info");
-                updateUI();
-                startGameLoop();
-                console.log("Game setup complete.");
+                // Show founder name modal first
+                const founderNameModal = document.getElementById('founder-name-modal');
+                const founderNameInput = document.getElementById('founder-name-input');
+                const startGameBtn = document.getElementById('start-game-btn');
+
+                founderNameModal.style.display = 'flex';
+                founderNameInput.focus();
+
+                startGameBtn.addEventListener('click', () => {
+                    const name = founderNameInput.value.trim();
+                    if (name) {
+                        gameState.founderName = name;
+                        founderNameModal.style.display = 'none';
+                        calculateDailySalary();
+                        addLogMessage(`Welcome, ${name}! Agency founded. Initial funds: $10000.`, "info");
+                        updateUI();
+                        startGameLoop();
+                        console.log("Game setup complete.");
+                    } else {
+                        founderNameInput.classList.add('border-red-500');
+                        setTimeout(() => founderNameInput.classList.remove('border-red-500'), 1000);
+                    }
+                });
+
+                // Allow Enter key to submit
+                founderNameInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        startGameBtn.click();
+                    }
+                });
+
             } catch (error) {
                 console.error("Error during initial game setup:", error);
                 addLogMessage("FATAL ERROR during game initialization. Check console.", "error");
