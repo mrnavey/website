@@ -9,26 +9,26 @@
       /* Removed @font-face and .lucide class */
       button { transition: all 0.15s ease-in-out; }
       button:disabled { opacity: 0.6; cursor: not-allowed; }
-      select:disabled { opacity: 0.6; cursor: not-allowed; background-color: #f3f4f6; }
-      .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
-      .modal-content { background-color: #fefefe; margin: auto; padding: 2rem; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-      .modal-close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-      .modal-close:hover, .modal-close:focus { color: black; text-decoration: none; cursor: pointer; }
-      .staff-card { border: 1px solid #e5e7eb; padding: 0.75rem; border-radius: 0.375rem; background-color: #ffffff; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
-      .stage-progress-bar { height: 6px; background-color: #e5e7eb; border-radius: 9999px; overflow: hidden; }
+      select:disabled { opacity: 0.6; cursor: not-allowed; background-color: #2d3748; }
+      .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); align-items: center; justify-content: center; }
+      .modal-content { background-color: #1a202c; margin: auto; padding: 2rem; border: 1px solid #2d3748; width: 80%; max-width: 600px; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2); }
+      .modal-close { color: #a0aec0; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+      .modal-close:hover, .modal-close:focus { color: #e2e8f0; text-decoration: none; cursor: pointer; }
+      .staff-card { border: 1px solid #2d3748; padding: 0.75rem; border-radius: 0.375rem; background-color: #2d3748; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.2); }
+      .stage-progress-bar { height: 6px; background-color: #2d3748; border-radius: 9999px; overflow: hidden; }
       .stage-progress { height: 100%; background-color: #fbbf24; border-radius: 9999px; transition: width 0.3s ease-out; }
        .paused-indicator { animation: blink 1.5s linear infinite; }
        @keyframes blink { 50% { opacity: 0.3; } }
        /* Tier Label Styles */
        .tier-label { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.4rem; border-radius: 9999px; margin-left: 0.5rem; vertical-align: middle; }
-       .tier-1 { background-color: #dbeafe; color: #1e40af; }
-       .tier-2 { background-color: #fed7aa; color: #9a3412; }
-       .tier-3 { background-color: #fecaca; color: #991b1b; }
+       .tier-1 { background-color: #2c5282; color: #ebf8ff; }
+       .tier-2 { background-color: #9c4221; color: #fff5f5; }
+       .tier-3 { background-color: #742a2a; color: #fff5f5; }
        /* Fire button style */
-       .fire-btn { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem; margin-left: 0.5rem; vertical-align: middle; }
-       .fire-btn:hover { background-color: #fecaca; border-color: #f87171; }
+       .fire-btn { background-color: #742a2a; color: #fff5f5; border: 1px solid #9b2c2c; padding: 0.1rem 0.4rem; font-size: 0.7rem; border-radius: 0.25rem; margin-left: 0.5rem; vertical-align: middle; }
+       .fire-btn:hover { background-color: #9b2c2c; border-color: #c53030; }
        /* Assignment Modal Style */
-       .assign-staff-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #eee; }
+       .assign-staff-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid #2d3748; }
        .assign-staff-item:last-child { border-bottom: none; }
        .assign-staff-item label { flex-grow: 1; margin-right: 1rem; }
        /* Icon styling */
@@ -47,21 +47,21 @@
        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Inter', sans-serif; } </style>
+    <style> body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; } </style>
 </head>
-<body class="bg-gray-100 text-gray-800 p-4 md:p-8">
+<body class="bg-gray-900 text-gray-200 p-4 md:p-8">
 
-    <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6 md:p-8">
+    <div class="max-w-6xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6 md:p-8">
 
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-200">
-            <h1 class="text-3xl font-bold text-indigo-700 mb-2 md:mb-0">Trailer Agency Tycoon</h1>
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-700">
+            <h1 class="text-3xl font-bold text-indigo-400 mb-2 md:mb-0">Trailer Agency Tycoon</h1>
             <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm md:text-base">
-                <span class="flex items-center text-green-600" title="Money"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dollar-sign.svg" class="icon" alt="Money"/> $<span id="money" class="text-gray-800">10000</span></span>
-                <span class="flex items-center text-blue-600" title="Industry Insight Points"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brain-circuit.svg" class="icon" alt="IIP"/> <span id="iip" class="text-gray-800">0</span> IIP</span>
-                <span class="flex items-center text-yellow-500" title="Reputation"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/star.svg" class="icon" alt="Reputation"/> <span id="reputation" class="text-gray-800">10</span> Rep</span>
-                <span class="flex items-center text-gray-500" title="Current Day"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/calendar.svg" class="icon" alt="Day"/> Day <span id="day" class="text-gray-800">1</span></span>
-                <span class="flex items-center text-red-500" title="Daily Salary Cost"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dollar-sign.svg" class="icon" alt="Salary"/> $<span id="daily-salary" class="text-gray-800">0</span>/day</span>
-                 <span class="flex items-center text-purple-500" title="Staff Count"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" class="icon" alt="Staff"/> <span id="staff-count" class="text-gray-800">0</span>/<span id="max-staff" class="text-gray-800">2</span> Staff</span>
+                <span class="flex items-center text-green-600" title="Money"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dollar-sign.svg" class="icon" alt="Money"/> $<span id="money" class="text-gray-200">10000</span></span>
+                <span class="flex items-center text-blue-600" title="Industry Insight Points"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brain-circuit.svg" class="icon" alt="IIP"/> <span id="iip" class="text-gray-200">0</span> IIP</span>
+                <span class="flex items-center text-yellow-500" title="Reputation"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/star.svg" class="icon" alt="Reputation"/> <span id="reputation" class="text-gray-200">10</span> Rep</span>
+                <span class="flex items-center text-gray-500" title="Current Day"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/calendar.svg" class="icon" alt="Day"/> Day <span id="day" class="text-gray-200">1</span></span>
+                <span class="flex items-center text-red-500" title="Daily Salary Cost"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/dollar-sign.svg" class="icon" alt="Salary"/> $<span id="daily-salary" class="text-gray-200">0</span>/day</span>
+                 <span class="flex items-center text-purple-500" title="Staff Count"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/users.svg" class="icon" alt="Staff"/> <span id="staff-count" class="text-gray-200">0</span>/<span id="max-staff" class="text-gray-200">2</span> Staff</span>
                  <span id="pause-indicator" class="flex items-center text-orange-600 font-semibold hidden paused-indicator" title="Game Paused"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/pause.svg" class="icon icon-sm" alt="Paused"/> Paused</span>
             </div>
         </header>
@@ -70,7 +70,7 @@
 
             <section class="md:col-span-2 space-y-6">
                 <div>
-                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Agency Actions</h2>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-300">Agency Actions</h2>
                     <div class="flex flex-wrap gap-2">
                          <button id="play-pause-btn" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md shadow flex items-center">
                             <img id="play-pause-icon" src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/pause.svg" class="icon -mr-1" alt=""/> <span id="play-pause-text">Pause</span>
@@ -87,19 +87,19 @@
                          </div>
                 </div>
 
-                <div id="current-project-section" class="bg-gray-50 p-4 rounded-lg shadow-sm hidden">
+                <div id="current-project-section" class="bg-gray-700 p-4 rounded-lg shadow-sm hidden">
                      <div class="flex justify-between items-center mb-3">
-                        <h2 class="text-xl font-semibold text-gray-700">Current Project</h2>
+                        <h2 class="text-xl font-semibold text-gray-300">Current Project</h2>
                         <span id="current-project-tier-label" class="tier-label">Tier X</span>
                      </div>
                      <div id="current-project-details" class="space-y-2 text-sm mb-4"></div>
                      <div id="current-project-stages" class="space-y-3 mb-4"></div>
                       <div class="mt-4">
-                         <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
+                         <div class="w-full bg-gray-600 rounded-full h-2.5 dark:bg-gray-700 mb-2">
                              <div id="project-progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-width duration-300 ease-out" style="width: 0%" title="Overall Project Progress"></div>
                          </div>
-                         <p class="text-xs text-gray-600 text-center">Overall Progress: <span id="project-progress-text">0</span>% (<span id="project-days-left">X</span> days left)</p>
-                         <p class="text-xs text-gray-600 text-center mt-1">Assigned Team Power:
+                         <p class="text-xs text-gray-400 text-center">Overall Progress: <span id="project-progress-text">0</span>% (<span id="project-days-left">X</span> days left)</p>
+                         <p class="text-xs text-gray-400 text-center mt-1">Assigned Team Power:
                             <span title="Creative Editing"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/edit-3.svg" class="icon text-blue-500" alt="CE"/> <span id="team-power-ce">0</span></span> /
                             <span title="Creative Design"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brush.svg" class="icon text-red-500" alt="CD"/> <span id="team-power-cd">0</span></span> /
                             <span title="Technical"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/settings.svg" class="icon text-green-500" alt="T"/> <span id="team-power-t">0</span></span> /
@@ -109,8 +109,8 @@
                      </div>
                      <div class="mt-4 flex items-center justify-between gap-4">
                          <div>
-                            <label for="project-focus-select" class="text-xs font-medium text-gray-600">Work Focus:</label>
-                            <select id="project-focus-select" class="text-xs border border-gray-300 rounded-md p-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            <label for="project-focus-select" class="text-xs font-medium text-gray-400">Work Focus:</label>
+                            <select id="project-focus-select" class="text-xs border border-gray-600 rounded-md p-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                 <option value="Balanced">Balanced</option>
                                 <option value="CE">Focus Editing (CE)</option>
                                 <option value="CD">Focus Design (CD)</option>
@@ -123,18 +123,18 @@
                      </div>
                  </div>
 
-                 <div id="available-projects-section" class="bg-gray-50 p-4 rounded-lg shadow-sm hidden">
-                      <h2 class="text-xl font-semibold mb-3 text-gray-700">Available Projects</h2>
+                 <div id="available-projects-section" class="bg-gray-700 p-4 rounded-lg shadow-sm hidden">
+                      <h2 class="text-xl font-semibold mb-3 text-gray-300">Available Projects</h2>
                       <div id="available-projects-list" class="space-y-3">
-                          <p class="text-gray-500">Click "Find New Project" to search for opportunities.</p>
+                          <p class="text-gray-400">Click "Find New Project" to search for opportunities.</p>
                       </div>
                   </div>
             </section>
 
             <aside class="space-y-6">
                  <div>
-                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Founder Skills</h2>
-                    <ul class="text-sm space-y-1 list-disc list-inside bg-blue-50 p-3 rounded">
+                    <h2 class="text-xl font-semibold mb-3 text-gray-300">Founder Skills</h2>
+                    <ul class="text-sm space-y-1 list-disc list-inside bg-gray-700 p-3 rounded">
                         <li title="Creative Editing"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/edit-3.svg" class="icon text-blue-500" alt="CE"/> Editing: <span id="skill-ce">10</span></li>
                         <li title="Creative Design"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/brush.svg" class="icon text-red-500" alt="CD"/> Design: <span id="skill-cd">10</span></li>
                         <li title="Technical"><img src="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/settings.svg" class="icon text-green-500" alt="T"/> Technical: <span id="skill-t">10</span></li>
@@ -142,14 +142,14 @@
                     </ul>
                 </div>
                 <div>
-                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Your Team (<span id="staff-count-aside">0</span>/<span id="max-staff-aside">2</span>)</h2>
+                    <h2 class="text-xl font-semibold mb-3 text-gray-300">Your Team (<span id="staff-count-aside">0</span>/<span id="max-staff-aside">2</span>)</h2>
                     <div id="staff-list" class="space-y-2">
-                         <p class="text-sm text-gray-500">You haven't hired anyone yet.</p>
+                         <p class="text-sm text-gray-400">You haven't hired anyone yet.</p>
                     </div>
                 </div>
                 <div>
-                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Message Log</h2>
-                    <div id="message-log" class="h-48 overflow-y-auto bg-gray-100 p-3 rounded border border-gray-200 text-xs space-y-1">
+                    <h2 class="text-xl font-semibold mb-3 text-gray-300">Message Log</h2>
+                    <div id="message-log" class="h-48 overflow-y-auto bg-gray-700 p-3 rounded border border-gray-600 text-xs space-y-1">
                         <p>Welcome to Trailer Agency Tycoon! Find your first project or hire some help. Time advances automatically.</p>
                         </div>
                 </div>
@@ -164,7 +164,7 @@
             <div id="modal-body"></div>
             <div id="modal-actions" class="mt-6 flex justify-end space-x-3">
                 {/* Modal actions added dynamically */}
-                <button class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md" onclick="closeModal()">Close</button>
+                <button class="bg-gray-600 hover:bg-gray-700 text-gray-200 font-medium py-2 px-4 rounded-md" onclick="closeModal()">Close</button>
             </div>
         </div>
     </div>
@@ -271,13 +271,13 @@
             }
         }
 
-        function renderStaffList() { staffListEl.innerHTML = ''; if (gameState.staff.length === 0) { staffListEl.innerHTML = '<p class="text-sm text-gray-500">You haven\'t hired anyone yet.</p>'; return; } gameState.staff.forEach(staff => { const div = document.createElement('div'); div.className = 'staff-card text-xs'; let skillsHTML = ''; if (staff.track === 'CE') { skillsHTML = `CE:${staff.skills.creativeEditing} / S:${staff.skills.speed}`; } else if (staff.track === 'CD') { skillsHTML = `CD:${staff.skills.creativeDesign} / S:${staff.skills.speed}`; } else if (staff.track === 'T') { skillsHTML = `T:${staff.skills.technical} / S:${staff.skills.speed}`; } const statusColor = staff.status === 'Working' ? 'text-green-600 font-semibold' : 'text-purple-600'; div.innerHTML = `<div class="flex justify-between items-center mb-1"><strong class="text-teal-700">${staff.name}</strong><div><span class="text-gray-500 italic">${staff.title}</span><button class="fire-btn" onclick="fireStaff('${staff.id}')" title="Fire ${staff.name}">Fire</button></div></div><div class="text-gray-600">Skills: ${skillsHTML}</div><div class="text-red-600">Salary: $${staff.salary}/day</div><div class="${statusColor}">Status: ${staff.status}</div>`; staffListEl.appendChild(div); }); }
+        function renderStaffList() { staffListEl.innerHTML = ''; if (gameState.staff.length === 0) { staffListEl.innerHTML = '<p class="text-sm text-gray-400">You haven\'t hired anyone yet.</p>'; return; } gameState.staff.forEach(staff => { const div = document.createElement('div'); div.className = 'staff-card text-xs'; let skillsHTML = ''; if (staff.track === 'CE') { skillsHTML = `CE:${staff.skills.creativeEditing} / S:${staff.skills.speed}`; } else if (staff.track === 'CD') { skillsHTML = `CD:${staff.skills.creativeDesign} / S:${staff.skills.speed}`; } else if (staff.track === 'T') { skillsHTML = `T:${staff.skills.technical} / S:${staff.skills.speed}`; } const statusColor = staff.status === 'Working' ? 'text-green-600 font-semibold' : 'text-purple-600'; div.innerHTML = `<div class="flex justify-between items-center mb-1"><strong class="text-teal-700">${staff.name}</strong><div><span class="text-gray-500 italic">${staff.title}</span><button class="fire-btn" onclick="fireStaff('${staff.id}')" title="Fire ${staff.name}">Fire</button></div></div><div class="text-gray-600">Skills: ${skillsHTML}</div><div class="text-red-600">Salary: $${staff.salary}/day</div><div class="${statusColor}">Status: ${staff.status}</div>`; staffListEl.appendChild(div); }); }
         function addLogMessage(message, type = 'info') { const p = document.createElement('p'); p.textContent = `Day ${gameState.day}: ${message}`; if (type === 'success') p.classList.add('text-green-700'); else if (type === 'error') p.classList.add('text-red-700'); else if (type === 'warning') p.classList.add('text-yellow-700'); else if (type === 'issue') p.classList.add('text-orange-600'); else p.classList.add('text-gray-600'); messageLogEl.insertBefore(p, messageLogEl.firstChild); if (messageLogEl.children.length > 50) { messageLogEl.removeChild(messageLogEl.lastChild); } }
 
         // --- Project Management ---
         function generateProject() { gameState.projectIdCounter++; const id = gameState.projectIdCounter; const clients = ["Indie Films Co.", "Mediocre Movies", "Blockbuster Studios", "Prestige TV Net", "StreamFlix", "Arthouse Distributor", "Game Studio Promo"]; const types = ["Teaser", "Trailer", "TV Spot", "Social Campaign", "Sizzle Reel", "Gameplay Trailer"]; const genres = ["Action", "Comedy", "Drama", "Horror", "Sci-Fi", "Documentary", "Animation", "Thriller", "Fantasy", "Musical"]; const client = clients[Math.floor(Math.random() * clients.length)]; const type = types[Math.floor(Math.random() * types.length)]; const genre = genres[Math.floor(Math.random() * genres.length)]; let tier = 1; const rep = gameState.reputation; const randTier = Math.random(); if (rep > 70) { if (randTier < 0.2) tier = 1; else if (randTier < 0.7) tier = 2; else tier = 3; } else if (rep > 30) { if (randTier < 0.6) tier = 1; else tier = 2; } else { tier = 1; } const baseDifficulty = 50 + Math.floor(gameState.reputation * 1.2) + (tier * 15); const difficultyMultiplier = 1 + Math.random() * 0.6; let totalRequiredCreative = Math.max(25, Math.floor(baseDifficulty * difficultyMultiplier * (0.6 + Math.random() * 0.6))); let totalRequiredTechnical = Math.max(25, Math.floor(baseDifficulty * difficultyMultiplier * (0.6 + Math.random() * 0.6))); if (tier === 3) { totalRequiredCreative = Math.floor(totalRequiredCreative * 1.15); } const totalPointsRequired = totalRequiredCreative + totalRequiredTechnical; let tier1FocusCE = false; if (tier === 1) { tier1FocusCE = Math.random() < 0.5; } let runningTotalCE = 0; let runningTotalCD = 0; let runningTotalT = 0; const stages = PROJECT_STAGES.map(stageInfo => { const stageTotalPoints = Math.floor(totalPointsRequired * stageInfo.baseWeight); const stageCreativePoints = Math.floor(stageTotalPoints * stageInfo.cRatio); const stageTechnicalPoints = Math.max(1, stageTotalPoints - stageCreativePoints); let stageReqCE = 0; let stageReqCD = 0; if (tier === 1) { if (tier1FocusCE) { stageReqCE = Math.max(0, stageCreativePoints); stageReqCD = 0; } else { stageReqCD = Math.max(0, stageCreativePoints); stageReqCE = 0; } } else { if (stageCreativePoints > 0) { stageReqCE = Math.max(1, Math.floor(stageCreativePoints * stageInfo.ceRatio)); stageReqCD = Math.max(1, stageCreativePoints - stageReqCE); } else { stageReqCE = 0; stageReqCD = 0; } } runningTotalCE += stageReqCE; runningTotalCD += stageReqCD; runningTotalT += stageTechnicalPoints; return { name: stageInfo.name, requiredPoints: { ce: stageReqCE, cd: stageReqCD, t: stageTechnicalPoints }, progressPoints: { ce: 0, cd: 0, t: 0 } }; }); const teamSpeed = calculateTeamPower().speed; const estimatedDays = teamSpeed > 0 ? Math.ceil(totalPointsRequired / teamSpeed) : 99; const daysToComplete = Math.max(stages.length + 2, estimatedDays + Math.floor(Math.random() * 8) - 3); const rewardMultiplier = TIER_REWARD_MULTIPLIERS[tier] || 1.0; const baseFee = 800 + Math.floor(totalPointsRequired) * 5; const fee = Math.floor(baseFee * rewardMultiplier * (1 + gameState.reputation / 80) * (0.85 + Math.random() * 0.3)); const iipReward = Math.max(Math.floor(2 * rewardMultiplier), Math.floor((totalPointsRequired / 20 + gameState.reputation / 15) * rewardMultiplier)); const repReward = Math.max(Math.floor(1 * rewardMultiplier), Math.floor((totalPointsRequired / 40 + 1) * rewardMultiplier)); return { id: id, client: client, type: type, genre: genre, tier: tier, fee: fee, iipReward: iipReward, repReward: repReward, totalRequiredPoints: { creativeEditing: runningTotalCE, creativeDesign: runningTotalCD, technical: runningTotalT }, daysToComplete: daysToComplete, daysWorked: 0, issueCount: 0, stages: stages, currentStageIndex: 0, assignedStaffIds: [] }; }
         function findNewProject() { console.log('Find Project button clicked. Current project:', gameState.currentProject); if (gameState.currentProject) { addLogMessage("Finish your current project first.", "warning"); return; } console.log('Proceeding to find projects...'); addLogMessage("Searching for new projects..."); gameState.availableProjects = []; const numProjects = Math.min(4, Math.max(1, Math.floor(gameState.reputation / 10))); for (let i = 0; i < numProjects; i++) { gameState.availableProjects.push(generateProject()); } if (gameState.availableProjects.length > 0) { addLogMessage(`Found ${gameState.availableProjects.length} potential projects.`, "success"); } else { addLogMessage("No suitable projects found.", "warning"); } updateUI(); }
-        function renderAvailableProjects() { availableProjectsList.innerHTML = ''; if (gameState.availableProjects.length === 0) { availableProjectsList.innerHTML = '<p class="text-gray-500">No projects available. Try "Find New Project".</p>'; return; } gameState.availableProjects.forEach(proj => { const div = document.createElement('div'); const totalReq = proj.totalRequiredPoints.creativeEditing + proj.totalRequiredPoints.creativeDesign + proj.totalRequiredPoints.technical; div.className = 'border border-gray-200 p-3 rounded-md bg-white shadow-sm hover:shadow-md transition-shadow'; div.innerHTML = `<div class="flex justify-between items-center"><h4 class="font-semibold text-indigo-700">${proj.client} - ${proj.type} (${proj.genre})</h4><span class="tier-label tier-${proj.tier}">Tier ${proj.tier}</span></div><p class="text-xs text-gray-600">Complexity: ${proj.totalRequiredPoints.creativeEditing} CE / ${proj.totalRequiredPoints.creativeDesign} CD / ${proj.totalRequiredPoints.technical} T (Total: ${totalReq})</p><p class="text-xs text-gray-600">Deadline: ${proj.daysToComplete} days</p><p class="text-xs text-gray-600">Budget: $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p><button class="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow" onclick="acceptProject(${proj.id})">Accept</button>`; availableProjectsList.appendChild(div); }); }
+        function renderAvailableProjects() { availableProjectsList.innerHTML = ''; if (gameState.availableProjects.length === 0) { availableProjectsList.innerHTML = '<p class="text-gray-400">No projects available. Try "Find New Project".</p>'; return; } gameState.availableProjects.forEach(proj => { const div = document.createElement('div'); const totalReq = proj.totalRequiredPoints.creativeEditing + proj.totalRequiredPoints.creativeDesign + proj.totalRequiredPoints.technical; div.className = 'border border-gray-600 p-3 rounded-md bg-gray-600 shadow-sm hover:shadow-md transition-shadow'; div.innerHTML = `<div class="flex justify-between items-center"><h4 class="font-semibold text-indigo-400">${proj.client} - ${proj.type} (${proj.genre})</h4><span class="tier-label tier-${proj.tier}">Tier ${proj.tier}</span></div><p class="text-xs text-gray-400">Complexity: ${proj.totalRequiredPoints.creativeEditing} CE / ${proj.totalRequiredPoints.creativeDesign} CD / ${proj.totalRequiredPoints.technical} T (Total: ${totalReq})</p><p class="text-xs text-gray-400">Deadline: ${proj.daysToComplete} days</p><p class="text-xs text-gray-400">Budget: $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p><button class="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow" onclick="acceptProject(${proj.id})">Accept</button>`; availableProjectsList.appendChild(div); }); }
         function acceptProject(projectId) { const project = gameState.availableProjects.find(p => p.id === projectId); if (project && !gameState.currentProject) { gameState.currentProject = project; gameState.availableProjects = []; gameState.projectFocus = 'Balanced'; gameState.staff.forEach(s => s.status = 'Idle'); addLogMessage(`Accepted Tier ${project.tier} project: ${project.client} - ${project.type}. Use 'Manage Assignment' to assign staff.`, "info"); updateUI(); showManageAssignmentModal(); } } // Added showManageAssignmentModal call
         function renderCurrentProject() { if (!gameState.currentProject) return; const proj = gameState.currentProject; const daysLeft = proj.daysToComplete - proj.daysWorked; currentProjectTierLabel.textContent = `Tier ${proj.tier}`; currentProjectTierLabel.className = `tier-label tier-${proj.tier}`; currentProjectDetails.innerHTML = `<p><strong>Client:</strong> ${proj.client}</p><p><strong>Project:</strong> ${proj.type} (${proj.genre})</p><p><strong>Deadline:</strong> <span class="${daysLeft <= 3 ? 'text-red-600 font-semibold' : ''}">${daysLeft} days remaining</span></p><p><strong>Potential Budget:</strong> $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p>`; currentProjectStagesEl.innerHTML = ''; let totalProgressPoints = 0; let totalRequiredStagePoints = 0; proj.stages.forEach((stage, index) => { const stageReqTotal = stage.requiredPoints.ce + stage.requiredPoints.cd + stage.requiredPoints.t; const stageProgressTotal = stage.progressPoints.ce + stage.progressPoints.cd + stage.progressPoints.t; const stageProgressPercent = stageReqTotal > 0 ? Math.min(100, Math.floor((stageProgressTotal / stageReqTotal) * 100)) : 100; const isActive = index === proj.currentStageIndex; const isComplete = (stage.progressPoints.ce >= stage.requiredPoints.ce && stage.progressPoints.cd >= stage.requiredPoints.cd && stage.progressPoints.t >= stage.requiredPoints.t); totalProgressPoints += stageProgressTotal; totalRequiredStagePoints += stageReqTotal; const stageDiv = document.createElement('div'); stageDiv.className = `text-xs border-l-4 ${isActive ? 'border-amber-400 pl-2 bg-amber-50' : (isComplete ? 'border-green-400 pl-2 opacity-70' : 'border-gray-300 pl-2 opacity-70') } p-2 rounded-r-md`; stageDiv.innerHTML = `<div class="font-medium ${isActive ? 'text-amber-700' : (isComplete ? 'text-green-700' : 'text-gray-600')}">${stage.name} ${isActive ? '(Active)' : (isComplete ? '(Completed)' : '')}</div><div>Req: ${stage.requiredPoints.ce} CE / ${stage.requiredPoints.cd} CD / ${stage.requiredPoints.t} T</div><div>Prog: ${stage.progressPoints.ce} CE / ${stage.progressPoints.cd} CD / ${stage.progressPoints.t} T (${stageProgressPercent}%)</div>${isActive || isComplete ? `<div class="stage-progress-bar mt-1"><div class="stage-progress" style="width: ${stageProgressPercent}%"></div></div>` : ''}`; currentProjectStagesEl.appendChild(stageDiv); }); const overallProgressPercent = totalRequiredStagePoints > 0 ? Math.min(100, Math.floor((totalProgressPoints / totalRequiredStagePoints) * 100)) : 100; projectProgressBar.style.width = `${overallProgressPercent}%`; projectProgressText.textContent = overallProgressPercent; projectDaysLeft.textContent = daysLeft; if (proj.issueCount > 0) { projectIssuesCount.textContent = proj.issueCount; projectIssuesDisplay.classList.remove('hidden'); } else { projectIssuesDisplay.classList.add('hidden'); } }
         function calculateTeamPower() { let totalCE = gameState.playerSkills.creativeEditing; let totalCD = gameState.playerSkills.creativeDesign; let totalT = gameState.playerSkills.technical; let totalSpeed = gameState.playerSkills.speed; const assignedIds = gameState.currentProject ? gameState.currentProject.assignedStaffIds : []; gameState.staff.forEach(staff => { if (assignedIds.includes(staff.id)) { totalCE += staff.skills.creativeEditing; totalCD += staff.skills.creativeDesign; totalT += staff.skills.technical; totalSpeed += staff.skills.speed; } }); return { creativeEditing: totalCE, creativeDesign: totalCD, technical: totalT, speed: totalSpeed }; }
@@ -346,7 +346,7 @@
             confirmButton.onclick = () => { const form = document.getElementById('assignment-form'); if (form) { const selectedCheckboxes = form.querySelectorAll('input[name="assignStaff"]:checked'); const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value); confirmAssignment(selectedIds); } else { console.error("Assignment form not found in modal."); } };
             modalActions.appendChild(confirmButton);
              const closeButton = document.createElement('button');
-             closeButton.className = 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md';
+             closeButton.className = 'bg-gray-600 hover:bg-gray-700 text-gray-200 font-medium py-2 px-4 rounded-md';
              closeButton.textContent = 'Cancel';
              closeButton.onclick = closeModal;
              modalActions.appendChild(closeButton);
@@ -375,14 +375,14 @@
 
 
         // --- Research ---
-        function showResearchModal() { console.log("Show Research Modal called."); let researchHTML = '<p class="mb-4">Select a capability to develop using your Industry Insight Points (IIP).</p><ul class="space-y-3">'; gameState.researchOptions.forEach(opt => { const isUnlocked = gameState.unlockedTech.includes(opt.id); const canAffordIIP = gameState.iip >= opt.cost; const canAffordMoney = opt.moneyCost ? gameState.money >= opt.moneyCost : true; const canAfford = canAffordIIP && canAffordMoney; let buttonText = `Cost: ${opt.cost} IIP`; if (opt.moneyCost) { buttonText += ` & $${opt.moneyCost}`; } let researchDisabled = !canAfford || isUnlocked; let disabledReason = ""; if (isUnlocked) disabledReason = " (Unlocked)"; else if (!canAffordIIP) disabledReason = " (Need IIP)"; else if (!canAffordMoney) disabledReason = " (Need $)"; if (opt.id === 'r5' && gameState.maxStaff >= 3) { researchDisabled = true; disabledReason = " (Office Maxed)"; } researchHTML += `<li class="border p-3 rounded-md ${researchDisabled ? 'bg-gray-100 opacity-70' : 'bg-white'}"><div class="flex justify-between items-center"><div><strong class="text-indigo-700">${opt.name}</strong> ${disabledReason}<p class="text-xs text-gray-600">${opt.description}</p></div><button class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed" onclick="purchaseResearch('${opt.id}')" ${researchDisabled ? 'disabled' : ''}>${buttonText}</button></div></li>`; }); researchHTML += '</ul>'; showModal("Develop Capabilities", researchHTML); }
+        function showResearchModal() { console.log("Show Research Modal called."); let researchHTML = '<p class="mb-4">Select a capability to develop using your Industry Insight Points (IIP).</p><ul class="space-y-3">'; gameState.researchOptions.forEach(opt => { const isUnlocked = gameState.unlockedTech.includes(opt.id); const canAffordIIP = gameState.iip >= opt.cost; const canAffordMoney = opt.moneyCost ? gameState.money >= opt.moneyCost : true; const canAfford = canAffordIIP && canAffordMoney; let buttonText = `Cost: ${opt.cost} IIP`; if (opt.moneyCost) { buttonText += ` & $${opt.moneyCost}`; } let researchDisabled = !canAfford || isUnlocked; let disabledReason = ""; if (isUnlocked) disabledReason = " (Unlocked)"; else if (!canAffordIIP) disabledReason = " (Need IIP)"; else if (!canAffordMoney) disabledReason = " (Need $)"; if (opt.id === 'r5' && gameState.maxStaff >= 3) { researchDisabled = true; disabledReason = " (Office Maxed)"; } researchHTML += `<li class="border p-3 rounded-md ${researchDisabled ? 'bg-gray-600 opacity-70' : 'bg-gray-600'}"><div class="flex justify-between items-center"><div><strong class="text-indigo-400">${opt.name}</strong> ${disabledReason}<p class="text-xs text-gray-400">${opt.description}</p></div><button class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed" onclick="purchaseResearch('${opt.id}')" ${researchDisabled ? 'disabled' : ''}>${buttonText}</button></div></li>`; }); researchHTML += '</ul>'; showModal("Develop Capabilities", researchHTML); }
         function purchaseResearch(researchId) { const option = gameState.researchOptions.find(opt => opt.id === researchId); if (!option) return; const isUnlocked = gameState.unlockedTech.includes(option.id); const canAffordIIP = gameState.iip >= option.cost; const canAffordMoney = option.moneyCost ? gameState.money >= option.moneyCost : true; if (option.id === 'r5' && gameState.maxStaff >= 3) { addLogMessage("Office already expanded.", "warning"); return; } if (option && canAffordIIP && canAffordMoney && !isUnlocked) { gameState.iip -= option.cost; if (option.moneyCost) { gameState.money -= option.moneyCost; } option.effect(); if (option.id === 'r5') { gameState.unlockedTech.push(option.id); } addLogMessage(`Researched: ${option.name}.`, "success"); closeModal(); updateUI(); } else { let reason = "Cannot complete research."; if (isUnlocked) reason = "Already researched."; else if (!canAffordIIP) reason = "Not enough IIP."; else if (!canAffordMoney) reason = "Not enough Money."; addLogMessage(reason, "warning"); } }
 
         // --- Game Over ---
         function gameOver(reason) { stopGameLoop(); addLogMessage(`Game Over: ${reason}`, "error"); showModal( "Game Over!", `<p class="text-red-600 font-semibold">${reason}</p><p>Your agency couldn't survive. You lasted ${gameState.day} days and reached Reputation ${gameState.reputation}.</p>`, true ); if(findProjectBtn) findProjectBtn.disabled = true; if(researchBtn) researchBtn.disabled = true; if(hireStaffBtn) hireStaffBtn.disabled = true; if(manageAssignmentBtn) manageAssignmentBtn.disabled = true; if(playPauseBtn) playPauseBtn.disabled = true; }
 
         // --- Modal Functions ---
-        function showModal(title, bodyHTML, isGameOver = false) { const wasPaused = gameState.isPaused; if(!wasPaused) stopGameLoop(); modalTitle.textContent = title; modalBody.innerHTML = bodyHTML; /* Modal actions added dynamically for assignment modal */ if(title !== "Assign Staff" && title !== "Manage Project Assignment") { modalActions.innerHTML = ''; if (!isGameOver) { const closeButton = document.createElement('button'); closeButton.className = 'bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md'; closeButton.textContent = 'Close'; closeButton.onclick = () => { closeModal(); if(!wasPaused) startGameLoop(); }; modalActions.appendChild(closeButton); } else { const restartButton = document.createElement('button'); restartButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md'; restartButton.textContent = 'Restart Game'; restartButton.onclick = () => window.location.reload(); modalActions.appendChild(restartButton); } } modal.style.display = 'flex'; }
+        function showModal(title, bodyHTML, isGameOver = false) { const wasPaused = gameState.isPaused; if(!wasPaused) stopGameLoop(); modalTitle.textContent = title; modalBody.innerHTML = bodyHTML; /* Modal actions added dynamically for assignment modal */ if(title !== "Assign Staff" && title !== "Manage Project Assignment") { modalActions.innerHTML = ''; if (!isGameOver) { const closeButton = document.createElement('button'); closeButton.className = 'bg-gray-600 hover:bg-gray-700 text-gray-200 font-medium py-2 px-4 rounded-md'; closeButton.textContent = 'Close'; closeButton.onclick = () => { closeModal(); if(!wasPaused) startGameLoop(); }; modalActions.appendChild(closeButton); } else { const restartButton = document.createElement('button'); restartButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md'; restartButton.textContent = 'Restart Game'; restartButton.onclick = () => window.location.reload(); modalActions.appendChild(restartButton); } } modal.style.display = 'flex'; }
         function closeModal() { modal.style.display = 'none'; updateUI(); }
         window.onclick = function(event) { if (event.target == modal) { const wasPaused = gameState.isPaused; closeModal(); if(!wasPaused) startGameLoop(); } }
 
