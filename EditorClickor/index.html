@@ -248,10 +248,30 @@
                  <button id="complete-reset-button" class="text-xs font-medium py-1 px-3 rounded border border-red-500 bg-red-200 hover:bg-red-300 text-red-800 disabled:opacity-50 disabled:cursor-not-allowed">Complete Reset</button>
                  <p class="text-xs mt-1 text-gray-500 italic">Warning: Deletes ALL progress including Prestige!</p>
             </div>
-            <div class="flex justify-center mt-6 w-full"> <audio controls autoplay loop src="https://mrnavey.github.io/website/EditorClickor/images/ClickFrenzy.mp3">
-         Your browser does not support the audio element.
-         You can <a href="https://mrnavey.github.io/website/EditorClickor/images/ClickFrenzy.mp3">download the MP3 file here</a>.
-                </audio>
+            <div class="text-center mt-6 w-full">
+        <audio id="myAudioPlayer" controls autoplay loop src="https://mrnavey.github.io/website/EditorClickor/images/ClickFrenzy.mp3">
+             Your browser does not support the audio element.
+             You can <a href="https://mrnavey.github.io/website/EditorClickor/images/ClickFrenzy.mp3">download the MP3 file here</a>.
+        </audio>
+    </div>
+
+    <script>
+      // Wait until the DOM is fully loaded (optional but good practice)
+      document.addEventListener('DOMContentLoaded', (event) => {
+        // Get the audio element using the ID we added
+        const audioPlayer = document.getElementById('myAudioPlayer');
+
+        // Check if the element exists before trying to set its volume
+        if (audioPlayer) {
+          // Set the initial volume: 0.0 = silent, 1.0 = 100%
+          // Let's set it to 20% volume
+          audioPlayer.volume = 0.2;
+        } else {
+          console.error("Audio player element not found!");
+        }
+      });
+    </script>
+
             </div>
         </div>
     </div>
