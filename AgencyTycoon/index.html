@@ -47,6 +47,26 @@
             vertical-align: -0.1em;
             filter: brightness(0) invert(1); /* Make icons white */
        }
+       /* Active stage styling */
+       .active-stage {
+           background-color: #2d3748;
+           border-left-color: #fbbf24;
+           color: #e2e8f0;
+       }
+       /* Work Focus select styling */
+       select#project-focus-select {
+           background-color: #2d3748;
+           color: #e2e8f0;
+           border-color: #4a5568;
+       }
+       select#project-focus-select:focus {
+           border-color: #fbbf24;
+           outline: none;
+       }
+       select#project-focus-select option {
+           background-color: #2d3748;
+           color: #e2e8f0;
+       }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style> body { font-family: 'Inter', sans-serif; background-color: #1a202c; color: #e2e8f0; } </style>
@@ -301,7 +321,106 @@
         function findNewProject() { console.log('Find Project button clicked. Current project:', gameState.currentProject); if (gameState.currentProject) { addLogMessage("Finish your current project first.", "warning"); return; } console.log('Proceeding to find projects...'); addLogMessage("Searching for new projects..."); gameState.availableProjects = []; const numProjects = Math.min(4, Math.max(1, Math.floor(gameState.reputation / 10))); for (let i = 0; i < numProjects; i++) { gameState.availableProjects.push(generateProject()); } if (gameState.availableProjects.length > 0) { addLogMessage(`Found ${gameState.availableProjects.length} potential projects.`, "success"); } else { addLogMessage("No suitable projects found.", "warning"); } updateUI(); }
         function renderAvailableProjects() { availableProjectsList.innerHTML = ''; if (gameState.availableProjects.length === 0) { availableProjectsList.innerHTML = '<p class="text-gray-400">No projects available. Try "Find New Project".</p>'; return; } gameState.availableProjects.forEach(proj => { const div = document.createElement('div'); const totalReq = proj.totalRequiredPoints.creativeEditing + proj.totalRequiredPoints.creativeDesign + proj.totalRequiredPoints.producing; div.className = 'border border-gray-600 p-3 rounded-md bg-gray-600 shadow-sm hover:shadow-md transition-shadow'; div.innerHTML = `<div class="flex justify-between items-center"><h4 class="font-semibold text-indigo-400">${proj.client} - ${proj.type} (${proj.genre})</h4><span class="tier-label tier-${proj.tier}">Tier ${proj.tier}</span></div><p class="text-xs text-gray-400">Complexity: ${proj.totalRequiredPoints.creativeEditing} CE / ${proj.totalRequiredPoints.creativeDesign} CD / ${proj.totalRequiredPoints.producing} P (Total: ${totalReq})</p><p class="text-xs text-gray-400">Deadline: ${proj.daysToComplete} days</p><p class="text-xs text-gray-400">Budget: $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p><button class="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1 px-3 rounded-md shadow" onclick="acceptProject(${proj.id})">Accept</button>`; availableProjectsList.appendChild(div); }); }
         function acceptProject(projectId) { const project = gameState.availableProjects.find(p => p.id === projectId); if (project && !gameState.currentProject) { gameState.currentProject = project; gameState.availableProjects = []; gameState.projectFocus = 'Balanced'; gameState.staff.forEach(s => s.status = 'Idle'); addLogMessage(`Accepted Tier ${project.tier} project: ${project.client} - ${project.type}. Use 'Manage Assignment' to assign staff.`, "info"); updateUI(); showManageAssignmentModal(); } } // Added showManageAssignmentModal call
-        function renderCurrentProject() { if (!gameState.currentProject) return; const proj = gameState.currentProject; const daysLeft = proj.daysToComplete - proj.daysWorked; currentProjectTierLabel.textContent = `Tier ${proj.tier}`; currentProjectTierLabel.className = `tier-label tier-${proj.tier}`; currentProjectDetails.innerHTML = `<p><strong>Client:</strong> ${proj.client}</p><p><strong>Project:</strong> ${proj.type} (${proj.genre})</p><p><strong>Deadline:</strong> <span class="${daysLeft <= 3 ? 'text-red-600 font-semibold' : ''}">${daysLeft} days remaining</span></p><p><strong>Potential Budget:</strong> $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p>`; currentProjectStagesEl.innerHTML = ''; let totalProgressPoints = 0; let totalRequiredStagePoints = 0; proj.stages.forEach((stage, index) => { const stageReqTotal = stage.requiredPoints.ce + stage.requiredPoints.cd + stage.requiredPoints.p; const stageProgressTotal = stage.progressPoints.ce + stage.progressPoints.cd + stage.progressPoints.p; const stageProgressPercent = stageReqTotal > 0 ? Math.min(100, Math.floor((stageProgressTotal / stageReqTotal) * 100)) : 100; const isActive = index === proj.currentStageIndex; const isComplete = (stage.progressPoints.ce >= stage.requiredPoints.ce && stage.progressPoints.cd >= stage.requiredPoints.cd && stage.progressPoints.p >= stage.requiredPoints.p); totalProgressPoints += stageProgressTotal; totalRequiredStagePoints += stageReqTotal; const stageDiv = document.createElement('div'); stageDiv.className = `text-xs border-l-4 ${isActive ? 'border-amber-400 pl-2 bg-amber-50' : (isComplete ? 'border-green-400 pl-2 opacity-70' : 'border-gray-300 pl-2 opacity-70') } p-2 rounded-r-md`; stageDiv.innerHTML = `<div class="font-medium ${isActive ? 'text-amber-700' : (isComplete ? 'text-green-700' : 'text-gray-600')}">${stage.name} ${isActive ? '(Active)' : (isComplete ? '(Completed)' : '')}</div><div>Req: ${stage.requiredPoints.ce} CE / ${stage.requiredPoints.cd} CD / ${stage.requiredPoints.p} P</div><div>Prog: ${stage.progressPoints.ce} CE / ${stage.progressPoints.cd} CD / ${stage.progressPoints.p} P (${stageProgressPercent}%)</div>${isActive || isComplete ? `<div class="stage-progress-bar mt-1"><div class="stage-progress" style="width: ${stageProgressPercent}%"></div></div>` : ''}`; currentProjectStagesEl.appendChild(stageDiv); }); const overallProgressPercent = totalRequiredStagePoints > 0 ? Math.min(100, Math.floor((totalProgressPoints / totalRequiredStagePoints) * 100)) : 100; projectProgressBar.style.width = `${overallProgressPercent}%`; projectProgressText.textContent = overallProgressPercent; projectDaysLeft.textContent = daysLeft; if (proj.issueCount > 0) { projectIssuesCount.textContent = proj.issueCount; projectIssuesDisplay.classList.remove('hidden'); } else { projectIssuesDisplay.classList.add('hidden'); } }
+        function renderCurrentProject() { 
+            if (!gameState.currentProject) return; 
+            const proj = gameState.currentProject; 
+            const daysLeft = proj.daysToComplete - proj.daysWorked; 
+            currentProjectTierLabel.textContent = `Tier ${proj.tier}`; 
+            currentProjectTierLabel.className = `tier-label tier-${proj.tier}`; 
+            currentProjectDetails.innerHTML = `<p><strong>Client:</strong> ${proj.client}</p><p><strong>Project:</strong> ${proj.type} (${proj.genre})</p><p><strong>Deadline:</strong> <span class="${daysLeft <= 3 ? 'text-red-600 font-semibold' : ''}">${daysLeft} days remaining</span></p><p><strong>Potential Budget:</strong> $${proj.fee}, ${proj.iipReward} IIP, ${proj.repReward} Rep</p>`; 
+            currentProjectStagesEl.innerHTML = ''; 
+            
+            // Calculate total required points for the entire project
+            let totalRequiredCE = 0;
+            let totalRequiredCD = 0;
+            let totalRequiredP = 0;
+            let totalProgressCE = 0;
+            let totalProgressCD = 0;
+            let totalProgressP = 0;
+            let weightedProgress = 0;
+            let totalWeight = 0;
+
+            proj.stages.forEach((stage, index) => {
+                // Add to total required points
+                totalRequiredCE += stage.requiredPoints.ce;
+                totalRequiredCD += stage.requiredPoints.cd;
+                totalRequiredP += stage.requiredPoints.p;
+                
+                // Add to total progress points
+                totalProgressCE += stage.progressPoints.ce;
+                totalProgressCD += stage.progressPoints.cd;
+                totalProgressP += stage.progressPoints.p;
+
+                // Calculate individual stage progress
+                const stageReqTotal = stage.requiredPoints.ce + stage.requiredPoints.cd + stage.requiredPoints.p;
+                const stageProgressTotal = stage.progressPoints.ce + stage.progressPoints.cd + stage.progressPoints.p;
+                
+                // Calculate progress for each skill type
+                const ceProgress = stage.requiredPoints.ce > 0 ? Math.min(1, stage.progressPoints.ce / stage.requiredPoints.ce) : 1;
+                const cdProgress = stage.requiredPoints.cd > 0 ? Math.min(1, stage.progressPoints.cd / stage.requiredPoints.cd) : 1;
+                const pProgress = stage.requiredPoints.p > 0 ? Math.min(1, stage.progressPoints.p / stage.requiredPoints.p) : 1;
+                
+                // Calculate weighted progress for each skill based on their required amounts
+                const totalRequired = stage.requiredPoints.ce + stage.requiredPoints.cd + stage.requiredPoints.p;
+                const ceWeight = stage.requiredPoints.ce / totalRequired;
+                const cdWeight = stage.requiredPoints.cd / totalRequired;
+                const pWeight = stage.requiredPoints.p / totalRequired;
+                
+                // Calculate overall stage progress as weighted average of skill progress
+                const stageProgressPercent = Math.min(100, Math.floor(
+                    (ceProgress * ceWeight + cdProgress * cdWeight + pProgress * pWeight) * 100
+                ));
+                
+                const isActive = index === proj.currentStageIndex;
+                const isComplete = (stage.progressPoints.ce >= stage.requiredPoints.ce && 
+                                  stage.progressPoints.cd >= stage.requiredPoints.cd && 
+                                  stage.progressPoints.p >= stage.requiredPoints.p);
+
+                // Calculate weighted progress for overall project
+                const stageWeight = PROJECT_STAGES[index].baseWeight;
+                totalWeight += stageWeight;
+                weightedProgress += (stageProgressPercent / 100) * stageWeight;
+
+                const stageDiv = document.createElement('div');
+                stageDiv.className = `text-xs border-l-4 ${isActive ? 'active-stage' : (isComplete ? 'border-green-400 pl-2 opacity-70' : 'border-gray-300 pl-2 opacity-70') } p-2 rounded-r-md`;
+                
+                stageDiv.innerHTML = `
+                    <div class="font-medium ${isActive ? 'text-amber-400' : (isComplete ? 'text-green-400' : 'text-gray-400')}">
+                        ${stage.name} ${isActive ? '(Active)' : (isComplete ? '(Completed)' : '')}
+                    </div>
+                    <div class="text-xs text-gray-400">
+                        Required: ${stage.requiredPoints.ce} CE / ${stage.requiredPoints.cd} CD / ${stage.requiredPoints.p} P
+                    </div>
+                    <div class="text-xs text-gray-400">
+                        Progress: ${stage.progressPoints.ce} CE / ${stage.progressPoints.cd} CD / ${stage.progressPoints.p} P
+                    </div>
+                    ${isActive || isComplete ? `
+                        <div class="stage-progress-bar mt-1">
+                            <div class="stage-progress" style="width: ${stageProgressPercent}%"></div>
+                        </div>
+                    ` : ''}
+                `;
+                currentProjectStagesEl.appendChild(stageDiv);
+            });
+
+            // Calculate overall project progress using weighted average
+            const overallProgressPercent = Math.min(100, Math.floor((weightedProgress / totalWeight) * 100));
+
+            // Update overall progress bar and text
+            projectProgressBar.style.width = `${overallProgressPercent}%`;
+            projectProgressText.textContent = overallProgressPercent;
+            projectDaysLeft.textContent = daysLeft;
+
+            // Update team power display
+            updateTeamPowerDisplay();
+
+            if (proj.issueCount > 0) {
+                projectIssuesCount.textContent = proj.issueCount;
+                projectIssuesDisplay.classList.remove('hidden');
+            } else {
+                projectIssuesDisplay.classList.add('hidden');
+            }
+        }
         function calculateTeamPower() {
             let totalCE = 0;
             let totalCD = 0;
@@ -486,9 +605,55 @@
         function gameOver(reason) { stopGameLoop(); addLogMessage(`Game Over: ${reason}`, "error"); showModal( "Game Over!", `<p class="text-red-600 font-semibold">${reason}</p><p>Your agency couldn't survive. You lasted ${gameState.day} days and reached Reputation ${gameState.reputation}.</p>`, true ); if(findProjectBtn) findProjectBtn.disabled = true; if(researchBtn) researchBtn.disabled = true; if(hireStaffBtn) hireStaffBtn.disabled = true; if(manageAssignmentBtn) manageAssignmentBtn.disabled = true; if(playPauseBtn) playPauseBtn.disabled = true; }
 
         // --- Modal Functions ---
-        function showModal(title, bodyHTML, isGameOver = false) { const wasPaused = gameState.isPaused; if(!wasPaused) stopGameLoop(); modalTitle.textContent = title; modalBody.innerHTML = bodyHTML; /* Modal actions added dynamically for assignment modal */ if(title !== "Assign Staff" && title !== "Manage Project Assignment") { modalActions.innerHTML = ''; if (!isGameOver) { const closeButton = document.createElement('button'); closeButton.className = 'bg-gray-600 hover:bg-gray-700 text-gray-200 font-medium py-2 px-4 rounded-md'; closeButton.textContent = 'Close'; closeButton.onclick = () => { closeModal(); if(!wasPaused) startGameLoop(); }; modalActions.appendChild(closeButton); } else { const restartButton = document.createElement('button'); restartButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md'; restartButton.textContent = 'Restart Game'; restartButton.onclick = () => window.location.reload(); modalActions.appendChild(restartButton); } } modal.style.display = 'flex'; }
-        function closeModal() { modal.style.display = 'none'; updateUI(); }
-        window.onclick = function(event) { if (event.target == modal) { const wasPaused = gameState.isPaused; closeModal(); if(!wasPaused) startGameLoop(); } }
+        function showModal(title, bodyHTML, isGameOver = false) { 
+            // Store the current pause state
+            const wasPaused = gameState.isPaused;
+            
+            // Pause the game when opening any modal
+            if (!wasPaused) {
+                stopGameLoop();
+            }
+            
+            modalTitle.textContent = title; 
+            modalBody.innerHTML = bodyHTML; 
+            /* Modal actions added dynamically for assignment modal */ 
+            if(title !== "Assign Staff" && title !== "Manage Project Assignment") { 
+                modalActions.innerHTML = ''; 
+                if (!isGameOver) { 
+                    const closeButton = document.createElement('button'); 
+                    closeButton.className = 'bg-gray-600 hover:bg-gray-700 text-gray-200 font-medium py-2 px-4 rounded-md'; 
+                    closeButton.textContent = 'Close'; 
+                    closeButton.onclick = () => { 
+                        closeModal(wasPaused); 
+                    }; 
+                    modalActions.appendChild(closeButton); 
+                } else { 
+                    const restartButton = document.createElement('button'); 
+                    restartButton.className = 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md'; 
+                    restartButton.textContent = 'Restart Game'; 
+                    restartButton.onclick = () => window.location.reload(); 
+                    modalActions.appendChild(restartButton); 
+                } 
+            } 
+            modal.style.display = 'flex'; 
+        }
+
+        function closeModal(wasPaused = false) { 
+            modal.style.display = 'none'; 
+            // Resume the game when closing the modal, but only if it wasn't paused before
+            if (!wasPaused) {
+                startGameLoop();
+            }
+            updateUI(); 
+        }
+
+        window.onclick = function(event) { 
+            if (event.target == modal) { 
+                // Get the current pause state before closing
+                const wasPaused = gameState.isPaused;
+                closeModal(wasPaused); 
+            } 
+        }
 
         // --- Event Listeners ---
         if (playPauseBtn) playPauseBtn.addEventListener('click', togglePause); else console.error("playPauseBtn not found");
