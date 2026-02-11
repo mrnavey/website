@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Open Road Movie Night Bracket</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #1a3b47; 
+            --box-color: #d45d44; 
+            --text-color: #fdf6e3; 
+            --accent: #e9c46a;
+            /* RIGID MATH - DO NOT CHANGE */
+            --r1-h: 100px;
+            --r2-h: 200px;
+            --r3-h: 400px;
+            --r4-h: 800px;
+            --slot-h: 40px; 
+            --internal-gap: 4px; 
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Arial Black', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { color: var(--accent); text-transform: uppercase; margin: 0; font-size: 2.5rem; letter-spacing: 3px; }
+        
+        .controls { display: flex; gap: 15px; margin-bottom: 25px; }
+        .btn {
+            border: none; padding: 14px 28px; font-weight: bold; cursor: pointer;
+            border-radius: 4px; color: white; text-transform: uppercase;
+        }
+        .btn-save { background: var(--box-color); box-shadow: 0 4px #9c3d2a; }
+        .btn-reset { background: #6c757d; box-shadow: 0 4px #495057; }
+
+        #save-area {
+            background-color: var(--bg-color);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bracket-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 1400px;
+        }
+
+        .side { display: flex; align-items: stretch; }
+        .round { display: flex; flex-direction: column; width: 175px; margin: 0 5px; }
+
+        .matchup {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            padding: 0 10px;
+        }
+
+        /* Centering Logic */
+        .round-1 .matchup { height: var(--r1-h); padding-top: calc((var(--r1-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
+        .round-2 .matchup { height: var(--r2-h); padding-top: calc((var(--r2-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
+        .round-3 .matchup { height: var(--r3-h); padding-top: calc((var(--r3-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
+        .round-4 .matchup { height: var(--r4-h); padding-top: calc((var(--r4-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
+
+        /* TEXT FIT SYSTEM */
+        .slot {
+            background-color: var(--box-color);
+            height: var(--slot-h);
+            font-size: 0.7rem; /* Smaller base font for long titles */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-transform: uppercase;
+            line-height: 1;
+            padding: 2px 5px;
+            overflow: hidden;
+            word-wrap: break-word; /* Forces wrapping */
+        }
+        .slot:first-child { margin-bottom: var(--internal-gap); }
+
+        .slot:hover { filter: brightness(1.15); }
+        .slot.winner { background-color: var(--accent); color: var(--bg-color); font-weight: bold; }
+        
+        .center-stage { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 300px; margin: 0 20px; }
+        
+        .finals-match {
+            width: 220px;
+            padding: 15px;
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .champ-box {
+            width: 240px; height: 110px; background: var(--accent); color: var(--bg-color);
+            display: flex; align-items: center; justify-content: center; font-weight: 900;
+            border-radius: 8px; border: 4px solid white; font-size: 1.4rem; text-align: center;
+            box-shadow: 0 0 30px rgba(233, 196, 106, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Open Road</h1>
+        <div>MOVIE NIGHT BRACKET: "ROM COM"</div>
+    </header>
+
+    <div class="controls">
+        <button class="btn btn-save" onclick="takeScreenshot()">Download My Bracket</button>
+        <button class="btn btn-reset" onclick="resetBracket()">Start Over</button>
+    </div>
+
+    <div id="save-area">
+        <div class="bracket-container">
+            <div class="side">
+                <div class="round round-1" id="L1"></div>
+                <div class="round round-2" id="L2"></div>
+                <div class="round round-3" id="L3"></div>
+                <div class="round round-4" id="L4"></div>
+            </div>
+
+            <div class="center-stage">
+                <div style="font-size: 0.9rem; margin-bottom: 10px; letter-spacing: 2px;">THE FINALS</div>
+                <div class="finals-match">
+                    <div class="slot" id="FINAL-0" onclick="advanceToChamp(this)">?</div>
+                    <div class="slot" id="FINAL-1" onclick="advanceToChamp(this)">?</div>
+                </div>
+                <div id="CHAMP" class="champ-box">CHAMPION</div>
+            </div>
+
+            <div class="side">
+                <div class="round round-4" id="R4"></div>
+                <div class="round round-3" id="R3"></div>
+                <div class="round round-2" id="R2"></div>
+                <div class="round round-1" id="R1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const moviesL = [
+            ["When Harry Met Sally", "27 Dresses"], ["Pretty Woman", "A Knight's Tale"],
+            ["My Big Fat Greek Wedding", "True Lies"], ["Notting Hill", "Bend It Like Beckham"],
+            ["Bridget Jones's Diary", "Legally Blonde"], ["Sleepless in Seattle", "Fever Pitch"],
+            ["How to Lose a Guy in 10 Days", "About Last Night"], ["You've Got Mail", "Shakespeare in Love"]
+        ];
+        const moviesR = [
+            ["10 Things I Hate About You", "Always Be My Maybe"], ["13 Going on 30", "Love, Rosie"],
+            ["Four Weddings and a Funeral", "Set It Up"], ["Crazy Rich Asians", "50 First Dates"],
+            ["The Wedding Planner", "To All the Boys I've Loved Before"], ["Silver Linings Playbook", "Say Anything"],
+            ["While You Were Sleeping", "Forgetting Sarah Marshall"], ["She's All That", "Crazy Stupid Love"]
+        ];
+
+        function init() {
+            ['L','R'].forEach(side => {
+                for(let r=1; r<=4; r++){
+                    const container = document.getElementById(`${side}${r}`);
+                    container.innerHTML = "";
+                    const count = Math.pow(2, 4 - r);
+                    for(let i=0; i<count; i++){
+                        const m = (r === 1) ? (side === 'L' ? moviesL[i] : moviesR[i]) : ["", ""];
+                        container.appendChild(createMatch(m[0], m[1], side, r, i));
+                    }
+                }
+            });
+            document.getElementById('FINAL-0').innerText = "?";
+            document.getElementById('FINAL-1').innerText = "?";
+            document.getElementById('FINAL-0').classList.remove('winner');
+            document.getElementById('FINAL-1').classList.remove('winner');
+            document.getElementById('CHAMP').innerText = "CHAMPION";
+        }
+
+        function createMatch(t1, t2, side, round, matchIdx) {
+            const div = document.createElement('div');
+            div.className = 'matchup';
+            div.innerHTML = `
+                <div class="slot" id="${side}-${round}-${matchIdx}-0" onclick="advance('${side}', ${round}, ${matchIdx}, 0)">${t1 || ""}</div>
+                <div class="slot" id="${side}-${round}-${matchIdx}-1" onclick="advance('${side}', ${round}, ${matchIdx}, 1)">${t2 || ""}</div>
+            `;
+            return div;
+        }
+
+        function advance(side, round, matchIdx, slotIdx) {
+            const currentSlot = document.getElementById(`${side}-${round}-${matchIdx}-${slotIdx}`);
+            const team = currentSlot.innerText;
+            if (!team || team === "") return;
+
+            currentSlot.parentElement.querySelectorAll('.slot').forEach(s => s.classList.remove('winner'));
+            currentSlot.classList.add('winner');
+
+            if (round === 4) {
+                const finalIdx = (side === 'L') ? 0 : 1;
+                const finalSlot = document.getElementById(`FINAL-${finalIdx}`);
+                finalSlot.innerText = team;
+                finalSlot.classList.remove('winner');
+                return;
+            }
+
+            const target = document.getElementById(`${side}-${round + 1}-${Math.floor(matchIdx / 2)}-${matchIdx % 2}`);
+            target.innerText = team;
+            target.classList.remove('winner');
+        }
+
+        function advanceToChamp(el) {
+            if (el.innerText === "?" || el.innerText === "") return;
+            document.querySelectorAll('.finals-match .slot').forEach(s => s.classList.remove('winner'));
+            el.classList.add('winner');
+            document.getElementById('CHAMP').innerText = el.innerText;
+        }
+
+        function resetBracket() {
+            if (confirm("Clear all picks and start over?")) init();
+        }
+
+        async function takeScreenshot() {
+            const area = document.getElementById('save-area');
+            const canvas = await html2canvas(area, { backgroundColor: '#1a3b47', scale: 2 });
+            const link = document.createElement('a');
+            link.download = 'movie-bracket.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        init();
+    </script>
+</body>
+</html>
