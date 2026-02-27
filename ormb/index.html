@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Open Road Movie Night Bracket</title>
+    <title>Open Road Sports Movie Bracket</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -10,13 +10,14 @@
             --box-color: #d45d44; 
             --text-color: #fdf6e3; 
             --accent: #e9c46a;
-            /* RIGID MATH - DO NOT CHANGE */
-            --r1-h: 100px;
-            --r2-h: 200px;
-            --r3-h: 400px;
-            --r4-h: 800px;
-            --slot-h: 40px; 
-            --internal-gap: 4px; 
+            /* INCREASED RIGID MATH FOR BETTER SEPARATION */
+            --r1-h: 120px;
+            --r2-h: 240px;
+            --r3-h: 480px;
+            --r4-h: 960px;
+            --r5-h: 1920px;
+            --slot-h: 44px; 
+            --internal-gap: 12px; /* Clearer gap between the two teams */
         }
 
         * { box-sizing: border-box; }
@@ -34,6 +35,7 @@
 
         header { text-align: center; margin-bottom: 20px; }
         h1 { color: var(--accent); text-transform: uppercase; margin: 0; font-size: 2.5rem; letter-spacing: 3px; }
+        .theme { font-size: 1.5rem; color: var(--text-color); margin-bottom: 10px; }
         
         .controls { display: flex; gap: 15px; margin-bottom: 25px; }
         .btn {
@@ -55,11 +57,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-width: 1400px;
+            min-width: 1900px;
         }
 
         .side { display: flex; align-items: stretch; }
-        .round { display: flex; flex-direction: column; width: 175px; margin: 0 5px; }
+        .round { display: flex; flex-direction: column; width: 200px; margin: 0 8px; }
 
         .matchup {
             display: flex;
@@ -68,53 +70,47 @@
             padding: 0 10px;
         }
 
-        /* Centering Logic */
+        /* PIXEL-PERFECT CENTERING */
         .round-1 .matchup { height: var(--r1-h); padding-top: calc((var(--r1-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
         .round-2 .matchup { height: var(--r2-h); padding-top: calc((var(--r2-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
         .round-3 .matchup { height: var(--r3-h); padding-top: calc((var(--r3-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
         .round-4 .matchup { height: var(--r4-h); padding-top: calc((var(--r4-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
+        .round-5 .matchup { height: var(--r5-h); padding-top: calc((var(--r5-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
 
-        /* TEXT FIT SYSTEM */
         .slot {
             background-color: var(--box-color);
             height: var(--slot-h);
-            font-size: 0.7rem; /* Smaller base font for long titles */
+            font-size: 0.8rem;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             cursor: pointer;
-            border-radius: 3px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
             text-transform: uppercase;
-            line-height: 1;
-            padding: 2px 5px;
+            line-height: 1.1;
+            padding: 4px 10px;
             overflow: hidden;
-            word-wrap: break-word; /* Forces wrapping */
+            word-wrap: break-word;
+            transition: all 0.1s ease;
         }
         .slot:first-child { margin-bottom: var(--internal-gap); }
-
-        .slot:hover { filter: brightness(1.15); }
+        .slot:hover { filter: brightness(1.2); transform: scale(1.03); }
         .slot.winner { background-color: var(--accent); color: var(--bg-color); font-weight: bold; }
         
-        .center-stage { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 300px; margin: 0 20px; }
+        .center-stage { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 340px; margin: 0 30px; }
         
         .finals-match {
-            width: 220px;
-            padding: 15px;
-            border: 2px dashed var(--accent);
-            border-radius: 8px;
-            margin-bottom: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            width: 260px; padding: 25px; border: 4px dashed var(--accent); border-radius: 12px;
+            margin-bottom: 40px; display: flex; flex-direction: column; gap: 12px;
         }
 
         .champ-box {
-            width: 240px; height: 110px; background: var(--accent); color: var(--bg-color);
+            width: 280px; height: 130px; background: var(--accent); color: var(--bg-color);
             display: flex; align-items: center; justify-content: center; font-weight: 900;
-            border-radius: 8px; border: 4px solid white; font-size: 1.4rem; text-align: center;
-            box-shadow: 0 0 30px rgba(233, 196, 106, 0.4);
+            border-radius: 10px; border: 6px solid white; font-size: 1.6rem; text-align: center;
+            box-shadow: 0 0 50px rgba(233, 196, 106, 0.4);
         }
     </style>
 </head>
@@ -122,7 +118,7 @@
 
     <header>
         <h1>Open Road</h1>
-        <div>MOVIE NIGHT BRACKET: "ROM COM"</div>
+        <div class="theme">MOVIE NIGHT BRACKET: "SPORTS"</div>
     </header>
 
     <div class="controls">
@@ -137,10 +133,11 @@
                 <div class="round round-2" id="L2"></div>
                 <div class="round round-3" id="L3"></div>
                 <div class="round round-4" id="L4"></div>
+                <div class="round round-5" id="L5"></div>
             </div>
 
             <div class="center-stage">
-                <div style="font-size: 0.9rem; margin-bottom: 10px; letter-spacing: 2px;">THE FINALS</div>
+                <div style="font-size: 1.1rem; margin-bottom: 12px; letter-spacing: 4px; font-weight: bold;">THE FINALS</div>
                 <div class="finals-match">
                     <div class="slot" id="FINAL-0" onclick="advanceToChamp(this)">?</div>
                     <div class="slot" id="FINAL-1" onclick="advanceToChamp(this)">?</div>
@@ -149,6 +146,7 @@
             </div>
 
             <div class="side">
+                <div class="round round-5" id="R5"></div>
                 <div class="round round-4" id="R4"></div>
                 <div class="round round-3" id="R3"></div>
                 <div class="round round-2" id="R2"></div>
@@ -159,24 +157,32 @@
 
     <script>
         const moviesL = [
-            ["When Harry Met Sally", "27 Dresses"], ["Pretty Woman", "A Knight's Tale"],
-            ["My Big Fat Greek Wedding", "True Lies"], ["Notting Hill", "Bend It Like Beckham"],
-            ["Bridget Jones's Diary", "Legally Blonde"], ["Sleepless in Seattle", "Fever Pitch"],
-            ["How to Lose a Guy in 10 Days", "About Last Night"], ["You've Got Mail", "Shakespeare in Love"]
+            ["Hoosiers", "Eddie's Million Dollar Cook-Off"], ["Rocky", "The Big Green"],
+            ["Raging Bull", "Air Bud"], ["Million Dollar Baby", "The Luck of the Irish"],
+            ["Warrior", "BASEketball"], ["Rush", "Rookie of the Year"],
+            ["F1", "The Waterboy"], ["Field of Dreams", "Talladega Nights"],
+            ["Moneyball", "Blades of Glory"], ["Creed", "Space Jam"],
+            ["Remember the Titans", "Days of Thunder"], ["Miracle", "Bring It On"],
+            ["Bull Durham", "The Fan"], ["Chariots of Fire", "Rad"],
+            ["Friday Night Lights", "Rocky IV"], ["The Wrestler", "Cobb"]
         ];
         const moviesR = [
-            ["10 Things I Hate About You", "Always Be My Maybe"], ["13 Going on 30", "Love, Rosie"],
-            ["Four Weddings and a Funeral", "Set It Up"], ["Crazy Rich Asians", "50 First Dates"],
-            ["The Wedding Planner", "To All the Boys I've Loved Before"], ["Silver Linings Playbook", "Say Anything"],
-            ["While You Were Sleeping", "Forgetting Sarah Marshall"], ["She's All That", "Crazy Stupid Love"]
+            ["The Karate Kid", "Cool Runnings"], ["Rounders", "White Men Can't Jump"],
+            ["A League of Their Own", "We Are Marshall"], ["Major League", "Varsity Blues"],
+            ["The Sandlot", "The Rookie"], ["Rudy", "The Color of Money"],
+            ["McFarland, USA", "Grand Prix"], ["Coach Carter", "Eight Men Out"],
+            ["I, Tonya", "For the Love of the Game"], ["Bend It Like Beckham", "42"],
+            ["Jerry Maguire", "The Fighter"], ["Any Given Sunday", "The Natural"],
+            ["Angels in the Outfield", "Bad News Bears"], ["The Mighty Ducks", "Caddyshack"],
+            ["Ford v Ferrari", "Rocky II"], ["Dodgeball", "Happy Gilmore"]
         ];
 
         function init() {
             ['L','R'].forEach(side => {
-                for(let r=1; r<=4; r++){
+                for(let r=1; r<=5; r++){
                     const container = document.getElementById(`${side}${r}`);
                     container.innerHTML = "";
-                    const count = Math.pow(2, 4 - r);
+                    const count = Math.pow(2, 5 - r);
                     for(let i=0; i<count; i++){
                         const m = (r === 1) ? (side === 'L' ? moviesL[i] : moviesR[i]) : ["", ""];
                         container.appendChild(createMatch(m[0], m[1], side, r, i));
@@ -185,8 +191,7 @@
             });
             document.getElementById('FINAL-0').innerText = "?";
             document.getElementById('FINAL-1').innerText = "?";
-            document.getElementById('FINAL-0').classList.remove('winner');
-            document.getElementById('FINAL-1').classList.remove('winner');
+            document.querySelectorAll('.finals-match .slot').forEach(s => s.classList.remove('winner'));
             document.getElementById('CHAMP').innerText = "CHAMPION";
         }
 
@@ -208,7 +213,7 @@
             currentSlot.parentElement.querySelectorAll('.slot').forEach(s => s.classList.remove('winner'));
             currentSlot.classList.add('winner');
 
-            if (round === 4) {
+            if (round === 5) {
                 const finalIdx = (side === 'L') ? 0 : 1;
                 const finalSlot = document.getElementById(`FINAL-${finalIdx}`);
                 finalSlot.innerText = team;
@@ -229,14 +234,14 @@
         }
 
         function resetBracket() {
-            if (confirm("Clear all picks and start over?")) init();
+            if (confirm("Reset the Sports bracket?")) init();
         }
 
         async function takeScreenshot() {
             const area = document.getElementById('save-area');
             const canvas = await html2canvas(area, { backgroundColor: '#1a3b47', scale: 2 });
             const link = document.createElement('a');
-            link.download = 'movie-bracket.png';
+            link.download = 'sports-movie-picks.png';
             link.href = canvas.toDataURL();
             link.click();
         }
