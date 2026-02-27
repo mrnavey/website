@@ -10,14 +10,14 @@
             --box-color: #d45d44; 
             --text-color: #fdf6e3; 
             --accent: #e9c46a;
-            /* INCREASED RIGID MATH FOR BETTER SEPARATION */
-            --r1-h: 120px;
-            --r2-h: 240px;
-            --r3-h: 480px;
-            --r4-h: 960px;
-            --r5-h: 1920px;
-            --slot-h: 44px; 
-            --internal-gap: 12px; /* Clearer gap between the two teams */
+            /* COMPACT RIGID MATH */
+            --r1-h: 54px;
+            --r2-h: 108px;
+            --r3-h: 216px;
+            --r4-h: 432px;
+            --r5-h: 864px;
+            --slot-h: 24px; 
+            --internal-gap: 1px; 
         }
 
         * { box-sizing: border-box; }
@@ -30,24 +30,24 @@
             flex-direction: column;
             align-items: center;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
 
-        header { text-align: center; margin-bottom: 20px; }
-        h1 { color: var(--accent); text-transform: uppercase; margin: 0; font-size: 2.5rem; letter-spacing: 3px; }
-        .theme { font-size: 1.5rem; color: var(--text-color); margin-bottom: 10px; }
+        header { text-align: center; margin-bottom: 10px; }
+        h1 { color: var(--accent); text-transform: uppercase; margin: 0; font-size: 1.8rem; letter-spacing: 2px; }
+        .theme { font-size: 1.1rem; color: var(--text-color); margin-bottom: 5px; }
         
-        .controls { display: flex; gap: 15px; margin-bottom: 25px; }
+        .controls { display: flex; gap: 10px; margin-bottom: 15px; }
         .btn {
-            border: none; padding: 14px 28px; font-weight: bold; cursor: pointer;
-            border-radius: 4px; color: white; text-transform: uppercase;
+            border: none; padding: 10px 20px; font-weight: bold; cursor: pointer;
+            border-radius: 4px; color: white; text-transform: uppercase; font-size: 0.8rem;
         }
-        .btn-save { background: var(--box-color); box-shadow: 0 4px #9c3d2a; }
-        .btn-reset { background: #6c757d; box-shadow: 0 4px #495057; }
+        .btn-save { background: var(--box-color); box-shadow: 0 3px #9c3d2a; }
+        .btn-reset { background: #6c757d; box-shadow: 0 3px #495057; }
 
         #save-area {
             background-color: var(--bg-color);
-            padding: 40px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -57,20 +57,20 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-width: 1900px;
+            min-width: 1500px;
         }
 
         .side { display: flex; align-items: stretch; }
-        .round { display: flex; flex-direction: column; width: 200px; margin: 0 8px; }
+        .round { display: flex; flex-direction: column; width: 130px; margin: 0 3px; }
 
         .matchup {
             display: flex;
             flex-direction: column;
             width: 100%;
-            padding: 0 10px;
+            padding: 0 3px;
         }
 
-        /* PIXEL-PERFECT CENTERING */
+        /* PIXEL-PERFECT COMPACT CENTERING */
         .round-1 .matchup { height: var(--r1-h); padding-top: calc((var(--r1-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
         .round-2 .matchup { height: var(--r2-h); padding-top: calc((var(--r2-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
         .round-3 .matchup { height: var(--r3-h); padding-top: calc((var(--r3-h) - (var(--slot-h) * 2) - var(--internal-gap)) / 2); }
@@ -80,37 +80,35 @@
         .slot {
             background-color: var(--box-color);
             height: var(--slot-h);
-            font-size: 0.8rem;
+            font-size: 0.55rem;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
             cursor: pointer;
-            border-radius: 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            border-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.4);
             text-transform: uppercase;
-            line-height: 1.1;
-            padding: 4px 10px;
+            line-height: 1;
+            padding: 1px 3px;
             overflow: hidden;
             word-wrap: break-word;
-            transition: all 0.1s ease;
         }
         .slot:first-child { margin-bottom: var(--internal-gap); }
-        .slot:hover { filter: brightness(1.2); transform: scale(1.03); }
+        .slot:hover { filter: brightness(1.2); }
         .slot.winner { background-color: var(--accent); color: var(--bg-color); font-weight: bold; }
         
-        .center-stage { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 340px; margin: 0 30px; }
+        .center-stage { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 220px; margin: 0 10px; }
         
         .finals-match {
-            width: 260px; padding: 25px; border: 4px dashed var(--accent); border-radius: 12px;
-            margin-bottom: 40px; display: flex; flex-direction: column; gap: 12px;
+            width: 180px; padding: 10px; border: 2px dashed var(--accent); border-radius: 6px;
+            margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px;
         }
 
         .champ-box {
-            width: 280px; height: 130px; background: var(--accent); color: var(--bg-color);
+            width: 200px; height: 80px; background: var(--accent); color: var(--bg-color);
             display: flex; align-items: center; justify-content: center; font-weight: 900;
-            border-radius: 10px; border: 6px solid white; font-size: 1.6rem; text-align: center;
-            box-shadow: 0 0 50px rgba(233, 196, 106, 0.4);
+            border-radius: 6px; border: 4px solid white; font-size: 1.1rem; text-align: center;
         }
     </style>
 </head>
@@ -122,8 +120,8 @@
     </header>
 
     <div class="controls">
-        <button class="btn btn-save" onclick="takeScreenshot()">Download My Bracket</button>
-        <button class="btn btn-reset" onclick="resetBracket()">Start Over</button>
+        <button class="btn btn-save" onclick="takeScreenshot()">Download Bracket</button>
+        <button class="btn btn-reset" onclick="resetBracket()">Reset</button>
     </div>
 
     <div id="save-area">
@@ -137,7 +135,7 @@
             </div>
 
             <div class="center-stage">
-                <div style="font-size: 1.1rem; margin-bottom: 12px; letter-spacing: 4px; font-weight: bold;">THE FINALS</div>
+                <div style="font-size: 0.7rem; margin-bottom: 5px; letter-spacing: 2px; font-weight: bold;">FINALS</div>
                 <div class="finals-match">
                     <div class="slot" id="FINAL-0" onclick="advanceToChamp(this)">?</div>
                     <div class="slot" id="FINAL-1" onclick="advanceToChamp(this)">?</div>
@@ -241,7 +239,7 @@
             const area = document.getElementById('save-area');
             const canvas = await html2canvas(area, { backgroundColor: '#1a3b47', scale: 2 });
             const link = document.createElement('a');
-            link.download = 'sports-movie-picks.png';
+            link.download = 'sports-bracket-compact.png';
             link.href = canvas.toDataURL();
             link.click();
         }
