@@ -207,6 +207,7 @@ const Sound = (() => {
   return {
     unlock: ensure,
     toggle(){ muted = !muted; return muted; },
+    setMuted(m){ muted = !!m; },
     tick(n){ tone(420 * Math.pow(2, Math.min(n,12)/12), 0, 0.09, "sine", 0.14); },
     untick(){ tone(300, 0, 0.07, "sine", 0.10); },
     bad(){ tone(130, 0, 0.18, "square", 0.10, 90); },
@@ -222,18 +223,34 @@ const Sound = (() => {
 
 /* ================= Persistence (YouTube Playables save, else in-memory) ================= */
 const Store = {
-  data: { streak: 0, best: 0, idx: 0 },
+  data: { streak: 0, best: 0, idx: 0, solved: [], cur: null, muted: false },
+  backend: "memory",
   async load(){
     if (window.ytgame && ytgame.game && ytgame.game.loadData){
       try {
         const raw = await ytgame.game.loadData();
-        if (raw) this.data = Object.assign(this.data, JSON.parse(raw));
+        if (raw) Object.assign(this.data, JSON.parse(raw));
+        this.backend = "ytgame";
+        return;
       } catch(e){}
+    }
+    try {
+      const raw = localStorage.getItem("starlight-save");
+      if (raw) Object.assign(this.data, JSON.parse(raw));
+      localStorage.setItem("starlight-save-probe", "1");
+      localStorage.removeItem("starlight-save-probe");
+      this.backend = "local";
+    } catch(e){
+      this.backend = "memory";   // sandboxed preview: progress lasts this session only
     }
   },
   save(){
-    if (window.ytgame && ytgame.game && ytgame.game.saveData){
-      try { ytgame.game.saveData(JSON.stringify(this.data)); } catch(e){}
+    const json = JSON.stringify(this.data);
+    if (this.backend === "ytgame"){
+      try { ytgame.game.saveData(json); return; } catch(e){}
+    }
+    if (this.backend === "local"){
+      try { localStorage.setItem("starlight-save", json); } catch(e){}
     }
   }
 };
@@ -284,9 +301,20 @@ function sizeBoard(){
 window.addEventListener("resize", sizeBoard);
 
 function loadPuzzle(i){
-  puzzle = PUZZLES[((i % PUZZLES.length) + PUZZLES.length) % PUZZLES.length];
-  selection = []; foundCount = 0; hintsLeft = 3; hintsUsed = 0; solved = false;
+  i = ((i % PUZZLES.length) + PUZZLES.length) % PUZZLES.length;
+  Store.data.idx = i;
+  puzzle = PUZZLES[i];
+  selection = []; foundCount = 0; solved = false;
   foundWords.clear(); hintedWords.clear();
+
+  // resume this puzzle's saved state, or start it fresh
+  if (!Store.data.cur || Store.data.cur.idx !== i){
+    Store.data.cur = { idx: i, found: [], hinted: [], hintsLeft: 3, hintsUsed: 0 };
+    Store.save();
+  }
+  const cur = Store.data.cur;
+  hintsLeft = cur.hintsLeft; hintsUsed = cur.hintsUsed;
+
   boardEl.innerHTML = ""; cells = [];
   for (let r = 0; r < ROWS; r++){
     cells.push([]);
@@ -300,13 +328,41 @@ function loadPuzzle(i){
       cells[r].push(d);
     }
   }
+
+  // quietly re-lock previously found words
+  cur.found.forEach(name => {
+    const w = puzzle.words.find(x => x.word === name);
+    if (!w || foundWords.has(name)) return;
+    foundWords.add(name); foundCount++;
+    const cls = w.span ? "spangram" : "found";
+    w.path.forEach(([r,c]) => cells[r][c].classList.add(cls));
+  });
+  // restore hint outlines for words still unfound
+  cur.hinted.forEach(name => {
+    if (foundWords.has(name)) return;
+    hintedWords.add(name);
+    const w = puzzle.words.find(x => x.word === name);
+    if (w) w.path.forEach(([r,c]) => cells[r][c].classList.add("hinted"));
+  });
+
   themeEl.textContent = puzzle.theme;
-  metaEl.textContent = `Puzzle ${Store.data.idx + 1} / ${PUZZLES.length}`;
-  progressEl.innerHTML = `<b>0</b> of ${puzzle.words.length}`;
-  hintBtn.disabled = false; hintBtn.textContent = "Hint · 3";
-  document.getElementById("win").classList.remove("show");
+  refreshMeta();
+  progressEl.innerHTML = `<b>${foundCount}</b> of ${puzzle.words.length}`;
+  hintBtn.textContent = `Hint · ${hintsLeft}`;
+  hintBtn.disabled = hintsLeft === 0;
+  if (foundCount === puzzle.words.length && puzzle.words.length){
+    solved = true;
+    showWin(false);      // board was finished before closing — show the result
+  } else {
+    document.getElementById("win").classList.remove("show");
+  }
   renderSelection();
   sizeBoard();
+}
+
+function refreshMeta(){
+  const n = Store.data.solved.length;
+  metaEl.textContent = `Puzzle ${Store.data.idx + 1} / ${PUZZLES.length}` + (n ? ` · ✓ ${n} solved` : "");
 }
 
 function renderSelection(){
@@ -401,6 +457,8 @@ function checkAuto(){
 function lockWord(match, text){
   foundWords.add(match.word);
   foundCount++;
+  if (!Store.data.cur.found.includes(match.word)) Store.data.cur.found.push(match.word);
+  Store.save();
   const cls = match.span ? "spangram" : "found";
   match.span ? Sound.spangram() : Sound.word();
   match.path.forEach(([r,c], i) => {
@@ -429,6 +487,10 @@ hintBtn.addEventListener("click", () => {
   hintedWords.add(pick.word);
   pick.path.forEach(([r,c]) => cells[r][c].classList.add("hinted"));
   hintsLeft--; hintsUsed++;
+  Store.data.cur.hinted.push(pick.word);
+  Store.data.cur.hintsLeft = hintsLeft;
+  Store.data.cur.hintsUsed = hintsUsed;
+  Store.save();
   hintBtn.textContent = `Hint · ${hintsLeft}`;
   if (hintsLeft === 0) hintBtn.disabled = true;
   Sound.hint();
@@ -445,24 +507,30 @@ function win(){
   solved = true;
   Store.data.streak++;
   if (Store.data.streak > Store.data.best) Store.data.best = Store.data.streak;
+  if (!Store.data.solved.includes(Store.data.cur.idx)) Store.data.solved.push(Store.data.cur.idx);
   Store.save();
   refreshStreak();
+  refreshMeta();
   Sound.win();
-  document.getElementById("winLine").textContent = `“${puzzle.theme}” — solved.`;
-  document.getElementById("winHints").textContent =
-    hintsUsed === 0 ? "A perfect, hint-free sky." : `Solved with ${hintsUsed} hint${hintsUsed>1?"s":""}.`;
-  document.getElementById("winStreak").textContent =
-    `🔥 Streak: ${Store.data.streak}` + (Store.data.streak === Store.data.best && Store.data.best > 1 ? " — new best!" : "");
-  document.getElementById("win").classList.add("show");
+  showWin(true);
   if (window.ytgame && ytgame.engagement && ytgame.engagement.sendScore){
     try { ytgame.engagement.sendScore({ value: Store.data.streak }); } catch(e){}
   }
 }
 
+function showWin(fresh){
+  document.getElementById("winLine").textContent = `“${puzzle.theme}” — solved.`;
+  document.getElementById("winHints").textContent =
+    hintsUsed === 0 ? "A perfect, hint-free sky." : `Solved with ${hintsUsed} hint${hintsUsed>1?"s":""}.`;
+  document.getElementById("winStreak").textContent =
+    `🔥 Streak: ${Store.data.streak}` + (fresh && Store.data.streak === Store.data.best && Store.data.best > 1 ? " — new best!" : "");
+  document.getElementById("win").classList.add("show");
+}
+
 document.getElementById("nextBtn").addEventListener("click", () => {
-  Store.data.idx = (Store.data.idx + 1) % PUZZLES.length;
+  Store.data.cur = null;
   Store.save();
-  loadPuzzle(Store.data.idx);
+  loadPuzzle(Store.data.idx + 1);
 });
 
 skipBtn.addEventListener("click", () => {
@@ -470,14 +538,17 @@ skipBtn.addEventListener("click", () => {
     if (Store.data.streak > 0) toast("Streak reset");
     Store.data.streak = 0;
   }
-  Store.data.idx = (Store.data.idx + 1) % PUZZLES.length;
+  Store.data.cur = null;
   Store.save();
   refreshStreak();
-  loadPuzzle(Store.data.idx);
+  loadPuzzle(Store.data.idx + 1);
 });
 
 soundBtn.addEventListener("click", () => {
-  soundBtn.textContent = Sound.toggle() ? "🔇" : "🔊";
+  const m = Sound.toggle();
+  soundBtn.textContent = m ? "🔇" : "🔊";
+  Store.data.muted = m;
+  Store.save();
 });
 
 /* ================= Toast ================= */
@@ -492,6 +563,8 @@ function toast(msg){
 /* ================= Boot + YouTube Playables handshake ================= */
 (async function boot(){
   await Store.load();
+  Sound.setMuted(Store.data.muted);
+  soundBtn.textContent = Store.data.muted ? "🔇" : "🔊";
   refreshStreak();
   loadPuzzle(Store.data.idx);
   if (window.ytgame && ytgame.game){
