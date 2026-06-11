@@ -352,8 +352,9 @@ const toastEl   = document.getElementById("toast");
 let puzzle, cur, cells = [], selection = [], foundCount = 0, hintsLeft = 3, hintsUsed = 0, solved = false;
 const foundWords = new Set();
 const hintedWords = new Set();
+const lockedSet = new Set();          // cells belonging to found words — updated instantly, before animations
 const isAdjacent = (a,b) => Math.abs(a[0]-b[0])<=1 && Math.abs(a[1]-b[1])<=1 && !(a[0]===b[0]&&a[1]===b[1]);
-const isLocked = (r,c) => cells[r][c].classList.contains("found") || cells[r][c].classList.contains("starword");
+const isLocked = (r,c) => lockedSet.has(r + "," + c);
 const selIndex = (r,c) => selection.findIndex(p => p[0]===r && p[1]===c);
 
 function sizeBoard(){
@@ -374,7 +375,7 @@ function loadPuzzle(i){
   puzzle = PUZZLES[i];
   selection = []; foundCount = 0; solved = false;
   qaShown = false;
-  foundWords.clear(); hintedWords.clear();
+  foundWords.clear(); hintedWords.clear(); lockedSet.clear();
 
   if (!Store.data.prog[i]){
     Store.data.prog[i] = { idx: i, found: [], hinted: [], hintsLeft: 3, hintsUsed: 0 };
@@ -409,7 +410,7 @@ function loadPuzzle(i){
     if (!w || foundWords.has(name)) return;
     foundWords.add(name); foundCount++;
     const cls = w.span ? "starword" : "found";
-    w.path.forEach(([r,c]) => cells[r][c].classList.add(cls));
+    w.path.forEach(([r,c]) => { cells[r][c].classList.add(cls); lockedSet.add(r + "," + c); });
   });
   // restore hint outlines for words still unfound
   cur.hinted.forEach(name => {
@@ -539,11 +540,13 @@ boardEl.addEventListener("pointerdown", e => {
   if (selection.length > 0 && !isAdjacent(selection[selection.length - 1], pos)){
     selection = [];                              // non-adjacent press starts a fresh word
   }
+  const before = foundCount;
   extendTo(pos);
+  if (foundCount > before) lockedDuringDrag = true;   // press finished a word — ignore it until release
 });
 
 boardEl.addEventListener("pointermove", e => {
-  if (!pressing) return;
+  if (!pressing || lockedDuringDrag) return;
   const pos = cellAt(e.clientX, e.clientY, true);
   if (!pos) return;
   const last = selection[selection.length - 1];
@@ -609,6 +612,7 @@ function lockWord(match, text){
   foundCount++;
   if (!cur.found.includes(match.word)) cur.found.push(match.word);
   Store.save();
+  match.path.forEach(([r,c]) => lockedSet.add(r + "," + c));
   const cls = match.span ? "starword" : "found";
   match.span ? Sound.starword() : Sound.word();
   buzz(match.span ? [20, 40, 30] : 15);
