@@ -87,7 +87,7 @@
   .cell.selected{background:var(--select); color:#1b1040; transform:scale(1.05);}
   .cell.last{box-shadow:0 0 0 3px rgba(234,240,255,.85);}
   .cell.found{background:var(--found); color:var(--found-ink);}
-  .cell.spangram{background:var(--span); color:var(--span-ink);}
+  .cell.starword{background:var(--span); color:var(--span-ink);}
   .cell.hinted::after{
     content:""; position:absolute; inset:2px; border-radius:50%;
     border:2px dashed var(--hint); animation:pulse 1.4s ease-in-out infinite;
@@ -96,6 +96,9 @@
   @media (prefers-reduced-motion: reduce){ .cell.hinted::after{animation:none;} }
   .cell.pop{animation:pop .35s;}
   @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+  .cell.enter{animation:appear .35s ease both; animation-delay:var(--d, 0ms);}
+  @keyframes appear{from{opacity:0; transform:scale(.55)}to{opacity:1; transform:scale(1)}}
+  @media (prefers-reduced-motion: reduce){ .cell.enter{animation:none;} }
 
   #hud{z-index:2; display:flex; gap:10px; align-items:center; margin:8px 0 6px; flex-wrap:wrap; justify-content:center;}
   #progress{font-size:13px; color:var(--ink-dim);}
@@ -149,6 +152,8 @@
   .pk:active{transform:scale(.93);}
   .pk.solved{background:rgba(94,230,201,.18); border-color:rgba(94,230,201,.55); color:var(--found);}
   .pk.solved::after{content:"\2713"; position:absolute; top:1px; right:4px; font-size:9px;}
+  .pk.perfect{border-color:rgba(255,209,102,.65);}
+  .pk.perfect::after{content:"\2605"; color:var(--span);}
   .pk.now{box-shadow:0 0 0 2px var(--span);}
 </style>
 </head>
@@ -199,6 +204,16 @@
   </div>
 </div>
 
+<div id="intro" class="overlay" aria-modal="true" role="dialog">
+  <div class="card">
+    <h2>How to play</h2>
+    <p>Theme words are hidden in the letters &mdash; <b>swipe</b> across neighbors or <b>tap</b> them one by one. Words lock in the moment you trace them.</p>
+    <p>One golden <b>Star Word</b> stretches all the way across the board and ties the theme together.</p>
+    <p>Stuck? You have <b>3 hints</b> per puzzle. Every letter belongs to exactly one answer.</p>
+    <div class="row"><button class="btn" id="introBtn">Let's play &#9656;</button></div>
+  </div>
+</div>
+
 <div id="picker" class="overlay" aria-modal="true" role="dialog">
   <div class="card" id="pickerCard">
     <h2>Choose a puzzle</h2>
@@ -212,7 +227,7 @@
 "use strict";
 
 /* ================= Puzzle data: 50 verified boards =================
-   Every board is a perfect tiling and every word (spangram included)
+   Every board is a perfect tiling and every word (starword included)
    is traceable in exactly one place. */
 const PUZZLES = [{"theme":"Look up at night","grid":["LAILBE","LOTUAN","ENONET","TGMSAL","SAOSPM","NXLCTE","OAYMCE","CTEORO"],"words":[{"word":"CONSTELLATION","span":true,"path":[[7,0],[6,0],[5,0],[4,0],[3,0],[2,0],[1,0],[0,0],[0,1],[1,2],[0,2],[1,1],[2,1]]},{"word":"COMET","span":false,"path":[[6,4],[7,3],[6,3],[7,2],[7,1]]},{"word":"COSMOS","span":false,"path":[[5,3],[4,2],[4,3],[3,2],[2,2],[3,3]]},{"word":"GALAXY","span":false,"path":[[3,1],[4,1],[5,2],[6,1],[5,1],[6,2]]},{"word":"METEOR","span":false,"path":[[4,5],[5,5],[5,4],[6,5],[7,5],[7,4]]},{"word":"NEBULA","span":false,"path":[[1,5],[0,5],[0,4],[1,3],[0,3],[1,4]]},{"word":"PLANET","span":false,"path":[[4,4],[3,5],[3,4],[2,3],[2,4],[2,5]]}]},{"theme":"Most important meal","grid":["URYPNO","PALSAC","GEBCNA","ASTEAB","EOTKST","RAFALA","RBKOYE","TUGCER"],"words":[{"word":"BREAKFAST","span":true,"path":[[6,1],[5,0],[4,0],[5,1],[6,2],[5,2],[5,3],[4,4],[4,5]]},{"word":"BACON","span":false,"path":[[3,5],[2,5],[1,5],[0,5],[0,4]]},{"word":"BAGEL","span":false,"path":[[2,2],[1,1],[2,0],[2,1],[1,2]]},{"word":"CEREAL","span":false,"path":[[7,3],[7,4],[7,5],[6,5],[5,5],[5,4]]},{"word":"PANCAKE","span":false,"path":[[0,3],[1,4],[2,4],[2,3],[3,4],[4,3],[3,3]]},{"word":"SYRUP","span":false,"path":[[1,3],[0,2],[0,1],[0,0],[1,0]]},{"word":"TOAST","span":false,"path":[[4,2],[4,1],[3,0],[3,1],[3,2]]},{"word":"YOGURT","span":false,"path":[[6,4],[6,3],[7,2],[7,1],[6,0],[7,0]]}]},{"theme":"Under the waves","grid":["OHANLO","RESPID","SECHSU","UOTOPC","RTNIHR","ETLEUA","SFILNE","HARKOC"],"words":[{"word":"OCEANLIFE","span":true,"path":[[7,4],[7,5],[6,5],[5,5],[6,4],[6,3],[6,2],[6,1],[5,0]]},{"word":"DOLPHIN","span":false,"path":[[1,5],[0,5],[0,4],[1,3],[2,3],[1,4],[0,3]]},{"word":"OCTOPUS","span":false,"path":[[3,1],[2,2],[3,2],[3,3],[3,4],[2,5],[2,4]]},{"word":"SEAHORSE","span":false,"path":[[1,2],[1,1],[0,2],[0,1],[0,0],[1,0],[2,0],[2,1]]},{"word":"SHARK","span":false,"path":[[6,0],[7,0],[7,1],[7,2],[7,3]]},{"word":"TURTLE","span":false,"path":[[4,1],[3,0],[4,0],[5,1],[5,2],[5,3]]},{"word":"URCHIN","span":false,"path":[[5,4],[4,5],[3,5],[4,4],[4,3],[4,2]]}]},{"theme":"Green thumb","grid":["WRTTGP","OEUDEA","LNENRO","ILCIHR","NUHAIC","MGDDTO","YAIULO","SIPLMB"],"words":[{"word":"GARDENING","span":true,"path":[[0,4],[1,5],[2,4],[1,3],[2,2],[2,1],[3,0],[4,0],[5,1]]},{"word":"BLOOM","span":false,"path":[[7,5],[6,4],[5,5],[6,5],[7,4]]},{"word":"DAISY","span":false,"path":[[5,2],[6,1],[7,1],[7,0],[6,0]]},{"word":"MULCH","span":false,"path":[[5,0],[4,1],[3,1],[3,2],[4,2]]},{"word":"ORCHID","span":false,"path":[[2,5],[3,5],[4,5],[3,4],[4,4],[5,3]]},{"word":"PETUNIA","span":false,"path":[[0,5],[1,4],[0,3],[1,2],[2,3],[3,3],[4,3]]},{"word":"TROWEL","span":false,"path":[[0,2],[0,1],[1,0],[0,0],[1,1],[2,0]]},{"word":"TULIP","span":false,"path":[[5,4],[6,3],[7,3],[6,2],[7,2]]}]},{"theme":"On a slice","grid":["SEVOLE","EACIES","IXRHBE","SLTNOA","ABMHPC","IOORSE","LCMUPP","RAGSRE"],"words":[{"word":"EXTRACHEESE","span":true,"path":[[1,0],[2,1],[3,2],[2,2],[1,1],[1,2],[2,3],[1,4],[0,5],[1,5],[2,5]]},{"word":"BACON","span":false,"path":[[2,4],[3,5],[4,5],[3,4],[3,3]]},{"word":"BASIL","span":false,"path":[[4,1],[4,0],[3,0],[2,0],[3,1]]},{"word":"GARLIC","span":false,"path":[[7,2],[7,1],[7,0],[6,0],[5,0],[6,1]]},{"word":"MUSHROOM","span":false,"path":[[6,2],[6,3],[5,4],[4,3],[5,3],[5,2],[5,1],[4,2]]},{"word":"OLIVES","span":false,"path":[[0,3],[0,4],[1,3],[0,2],[0,1],[0,0]]},{"word":"PEPPERS","span":false,"path":[[4,4],[5,5],[6,5],[6,4],[7,5],[7,4],[7,3]]}]},{"theme":"Check the skies","grid":["FEOCYC","ONLTED","RNWOER","EIBSLA","CEARZI","AEZELZ","SRDBEL","TBRIZZ"],"words":[{"word":"FORECAST","span":true,"path":[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0]]},{"word":"BLIZZARD","span":false,"path":[[6,3],[5,4],[4,5],[5,5],[4,4],[3,5],[2,5],[1,5]]},{"word":"BREEZE","span":false,"path":[[7,1],[6,1],[5,1],[4,1],[5,2],[5,3]]},{"word":"CYCLONE","span":false,"path":[[0,5],[0,4],[0,3],[1,2],[0,2],[1,1],[0,1]]},{"word":"DRIZZLE","span":false,"path":[[6,2],[7,2],[7,3],[7,4],[7,5],[6,5],[6,4]]},{"word":"RAINBOW","span":false,"path":[[4,3],[4,2],[3,1],[2,1],[3,2],[2,3],[2,2]]},{"word":"SLEET","span":false,"path":[[3,3],[3,4],[2,4],[1,4],[1,3]]}]},{"theme":"Take a seat, maestro","grid":["OOAUTO","EBBHRT","RTSECR","AIAOUB","PTNMAF","CEPNLU","OEPAJT","LLROHE"],"words":[{"word":"ORCHESTRA","span":true,"path":[[0,5],[1,4],[2,4],[1,3],[2,3],[2,2],[2,1],[2,0],[3,0]]},{"word":"BANJO","span":false,"path":[[3,5],[4,4],[5,3],[6,4],[7,3]]},{"word":"CELLO","span":false,"path":[[5,0],[6,1],[7,0],[7,1],[6,0]]},{"word":"FLUTE","span":false,"path":[[4,5],[5,4],[5,5],[6,5],[7,5]]},{"word":"HARP","span":false,"path":[[7,4],[6,3],[7,2],[6,2]]},{"word":"OBOE","span":false,"path":[[0,0],[1,1],[0,1],[1,0]]},{"word":"PIANO","span":false,"path":[[4,0],[3,1],[3,2],[4,2],[3,3]]},{"word":"TRUMPET","span":false,"path":[[1,5],[2,5],[3,4],[4,3],[5,2],[5,1],[4,1]]},{"word":"TUBA","span":false,"path":[[0,4],[0,3],[1,2],[0,2]]}]},{"theme":"Morning brew","grid":["AOFALM","MTTNIU","SFTBFF","AOAEEA","OHRCNS","UEEFED","SAIAFO","BERSTC"],"words":[{"word":"COFFEEHOUSE","span":true,"path":[[7,5],[6,5],[6,4],[5,3],[5,2],[5,1],[4,1],[4,0],[5,0],[6,0],[7,1]]},{"word":"BARISTA","span":false,"path":[[7,0],[6,1],[7,2],[6,2],[7,3],[7,4],[6,3]]},{"word":"BEANS","span":false,"path":[[2,3],[3,4],[3,5],[4,4],[4,5]]},{"word":"DECAF","span":false,"path":[[5,5],[5,4],[4,3],[3,2],[2,1]]},{"word":"FOAM","span":false,"path":[[0,2],[0,1],[0,0],[1,0]]},{"word":"LATTE","span":false,"path":[[0,4],[0,3],[1,2],[2,2],[3,3]]},{"word":"MUFFIN","span":false,"path":[[0,5],[1,5],[2,5],[2,4],[1,4],[1,3]]},{"word":"ROAST","span":false,"path":[[4,2],[3,1],[3,0],[2,0],[1,1]]}]},{"theme":"Pitch a tent","grid":["GNIHER","IKTTNN","OUADAL","KTREOG","DISORC","NLEENO","CITGMA","ANNSSP"],"words":[{"word":"GREATOUTDOORS","span":true,"path":[[3,5],[4,4],[3,3],[2,2],[3,1],[2,0],[2,1],[1,2],[2,3],[3,4],[4,3],[3,2],[4,2]]},{"word":"CANTEEN","span":false,"path":[[6,0],[7,0],[7,1],[6,2],[5,2],[5,3],[5,4]]},{"word":"COMPASS","span":false,"path":[[4,5],[5,5],[6,4],[7,5],[6,5],[7,4],[7,3]]},{"word":"HIKING","span":false,"path":[[0,3],[0,2],[1,1],[1,0],[0,1],[0,0]]},{"word":"KINDLING","span":false,"path":[[3,0],[4,1],[5,0],[4,0],[5,1],[6,1],[7,2],[6,3]]},{"word":"LANTERN","span":false,"path":[[2,5],[2,4],[1,4],[1,3],[0,4],[0,5],[1,5]]}]},{"theme":"Dig them up","grid":["RTSHER","IORIPC","LCPAIS","EAOTSA","SECRJR","XTSRTU","INBENA","TCMAOL"],"words":[{"word":"PREHISTORIC","span":true,"path":[[1,4],[0,5],[0,4],[0,3],[1,3],[0,2],[0,1],[1,1],[0,0],[1,0],[2,1]]},{"word":"AMBER","span":false,"path":[[7,3],[7,2],[6,2],[6,3],[5,3]]},{"word":"EXTINCT","span":false,"path":[[4,1],[5,0],[5,1],[6,0],[6,1],[7,1],[7,0]]},{"word":"JURASSIC","span":false,"path":[[4,4],[5,5],[4,5],[3,5],[2,5],[3,4],[2,4],[1,5]]},{"word":"RAPTOR","span":false,"path":[[1,2],[2,3],[2,2],[3,3],[3,2],[4,3]]},{"word":"SCALES","span":false,"path":[[5,2],[4,2],[3,1],[2,0],[3,0],[4,0]]},{"word":"TALON","span":false,"path":[[5,4],[6,5],[7,5],[7,4],[6,4]]}]},{"theme":"Toes in the sand","grid":["TOEEBS","IOLRIW","NSHFDA","LEARKL","LBOEEB","SCZERI","ASINCP","ESHORE"],"words":[{"word":"SEASHORE","span":true,"path":[[6,1],[7,0],[6,0],[7,1],[7,2],[7,3],[7,4],[7,5]]},{"word":"BOARDWALK","span":false,"path":[[4,1],[4,2],[3,2],[3,3],[2,4],[1,5],[2,5],[3,5],[3,4]]},{"word":"BREEZE","span":false,"path":[[4,5],[5,4],[4,4],[4,3],[5,2],[5,3]]},{"word":"FRISBEE","span":false,"path":[[2,3],[1,3],[1,4],[0,5],[0,4],[0,3],[0,2]]},{"word":"LOTION","span":false,"path":[[1,2],[0,1],[0,0],[1,0],[1,1],[2,0]]},{"word":"PICNIC","span":false,"path":[[6,5],[5,5],[6,4],[6,3],[6,2],[5,1]]},{"word":"SHELLS","span":false,"path":[[2,1],[2,2],[3,1],[3,0],[4,0],[5,0]]}]},{"theme":"Preheat the oven","grid":["TEHISK","RTWSOC","ABUDOK","GHGAEI","UOANKE","DRYSTS","INAELR","PGNILO"],"words":[{"word":"ROLLINGPIN","span":true,"path":[[6,5],[7,5],[7,4],[6,4],[7,3],[7,2],[7,1],[7,0],[6,0],[6,1]]},{"word":"BATTER","span":false,"path":[[2,1],[2,0],[1,1],[0,0],[0,1],[1,0]]},{"word":"COOKIES","span":false,"path":[[1,5],[1,4],[2,4],[2,5],[3,5],[4,5],[5,5]]},{"word":"DOUGH","span":false,"path":[[5,0],[4,1],[4,0],[3,0],[3,1]]},{"word":"KNEAD","span":false,"path":[[4,4],[4,3],[3,4],[3,3],[2,3]]},{"word":"SUGAR","span":false,"path":[[1,3],[2,2],[3,2],[4,2],[5,1]]},{"word":"WHISK","span":false,"path":[[1,2],[0,2],[0,3],[0,4],[0,5]]},{"word":"YEAST","span":false,"path":[[5,2],[6,3],[6,2],[5,3],[5,4]]}]},{"theme":"Suit up for liftoff","grid":["ORITRV","HBEGIA","TCRTPA","ULNYCS","OAAUUE","CRNOTL","KHLRSA","ETEMET"],"words":[{"word":"ASTRONAUT","span":true,"path":[[6,5],[6,4],[5,4],[6,3],[5,3],[5,2],[4,1],[3,0],[2,0]]},{"word":"CAPSULE","span":false,"path":[[3,4],[2,5],[2,4],[3,5],[4,4],[5,5],[4,5]]},{"word":"GRAVITY","span":false,"path":[[1,3],[0,4],[1,5],[0,5],[1,4],[2,3],[3,3]]},{"word":"HELMET","span":false,"path":[[6,1],[7,2],[6,2],[7,3],[7,4],[7,5]]},{"word":"LAUNCH","span":false,"path":[[3,1],[4,2],[4,3],[3,2],[2,1],[1,0]]},{"word":"ORBITER","span":false,"path":[[0,0],[0,1],[1,1],[0,2],[0,3],[1,2],[2,2]]},{"word":"ROCKET","span":false,"path":[[5,1],[4,0],[5,0],[6,0],[7,0],[7,1]]}]},{"theme":"Canopy dwellers","grid":["TSEOFN","JGURRI","AARWCA","YPSKAA","THNAEM","ONLEMU","OTSKNR","HLYEOM"],"words":[{"word":"RAINFOREST","span":true,"path":[[1,4],[2,5],[1,5],[0,5],[0,4],[0,3],[1,3],[0,2],[0,1],[0,0]]},{"word":"JAGUAR","span":false,"path":[[1,0],[2,0],[1,1],[1,2],[2,1],[2,2]]},{"word":"LEMUR","span":false,"path":[[5,2],[5,3],[5,4],[5,5],[6,5]]},{"word":"MACAW","span":false,"path":[[4,5],[3,5],[2,4],[3,4],[2,3]]},{"word":"MONKEY","span":false,"path":[[7,5],[7,4],[6,4],[6,3],[7,3],[7,2]]},{"word":"PYTHON","span":false,"path":[[3,1],[3,0],[4,0],[4,1],[5,0],[5,1]]},{"word":"SLOTH","span":false,"path":[[6,2],[7,1],[6,0],[6,1],[7,0]]},{"word":"SNAKE","span":false,"path":[[3,2],[4,2],[4,3],[3,3],[4,4]]}]},{"theme":"Bundle up outside","grid":["EDINGS","LDELON","STTMCW","ESFIIF","NTSRLC","YEIOAI","SVRGKS","HILOOE"],"words":[{"word":"SNOWFLAKES","span":true,"path":[[0,5],[1,5],[1,4],[2,5],[3,5],[4,4],[5,4],[6,4],[7,5],[6,5]]},{"word":"FROSTY","span":false,"path":[[3,2],[4,3],[5,3],[4,2],[4,1],[5,0]]},{"word":"ICICLE","span":false,"path":[[5,5],[4,5],[3,4],[2,4],[1,3],[1,2]]},{"word":"IGLOO","span":false,"path":[[5,2],[6,3],[7,2],[7,3],[7,4]]},{"word":"MITTENS","span":false,"path":[[2,3],[3,3],[2,2],[2,1],[3,0],[4,0],[3,1]]},{"word":"SHIVER","span":false,"path":[[6,0],[7,0],[7,1],[6,1],[5,1],[6,2]]},{"word":"SLEDDING","span":false,"path":[[2,0],[1,0],[0,0],[0,1],[1,1],[0,2],[0,3],[0,4]]}]},{"theme":"Spooky night out","grid":["IEHRPS","PRGOEI","WMSTGD","BEAYBO","OBVKOL","ECSPOI","RATKRN","TROICT"],"words":[{"word":"TRICKORTREAT","span":true,"path":[[7,5],[6,4],[7,3],[7,4],[6,3],[7,2],[7,1],[7,0],[6,0],[5,0],[6,1],[6,2]]},{"word":"COBWEB","span":false,"path":[[5,1],[4,0],[3,0],[2,0],[3,1],[4,1]]},{"word":"GHOST","span":false,"path":[[1,2],[0,2],[1,3],[2,2],[2,3]]},{"word":"GOBLIN","span":false,"path":[[2,4],[3,5],[3,4],[4,5],[5,5],[6,5]]},{"word":"SPIDER","span":false,"path":[[0,5],[0,4],[1,5],[2,5],[1,4],[0,3]]},{"word":"SPOOKY","span":false,"path":[[5,2],[5,3],[5,4],[4,4],[4,3],[3,3]]},{"word":"VAMPIRE","span":false,"path":[[4,2],[3,2],[2,1],[1,0],[0,0],[1,1],[0,1]]}]},{"theme":"Fresh and juicy","grid":["EGURHC","PANIFA","APATEN","YARSPO","GUOAML","VAOELE","AGSPGA","NAMARD"],"words":[{"word":"FRUITSALAD","span":true,"path":[[1,4],[0,3],[0,2],[1,3],[2,3],[3,3],[4,3],[5,4],[6,5],[7,5]]},{"word":"GRAPES","span":false,"path":[[6,4],[7,4],[7,3],[6,3],[5,3],[6,2]]},{"word":"GUAVA","span":false,"path":[[4,0],[4,1],[5,1],[5,0],[6,0]]},{"word":"MANGO","span":false,"path":[[7,2],[7,1],[7,0],[6,1],[5,2]]},{"word":"MELON","span":false,"path":[[4,4],[5,5],[4,5],[3,5],[2,5]]},{"word":"ORANGE","span":false,"path":[[4,2],[3,2],[2,2],[1,2],[0,1],[0,0]]},{"word":"PAPAYA","span":false,"path":[[1,0],[1,1],[2,1],[2,0],[3,0],[3,1]]},{"word":"PEACH","span":false,"path":[[3,4],[2,4],[1,5],[0,5],[0,4]]}]},{"theme":"Fresh from the stand","grid":["FRARKT","MAMPEC","ESINSE","RHCAYL","OIONER","NBRCAR","ESEPTR","ETPEPO"],"words":[{"word":"FARMERSMARKET","span":true,"path":[[0,0],[1,1],[0,1],[1,0],[2,0],[3,0],[2,1],[1,2],[0,2],[0,3],[0,4],[1,4],[0,5]]},{"word":"BEETS","span":false,"path":[[5,1],[6,0],[7,0],[7,1],[6,1]]},{"word":"CARROT","span":false,"path":[[5,3],[5,4],[5,5],[6,5],[7,5],[6,4]]},{"word":"CELERY","span":false,"path":[[1,5],[2,5],[3,5],[4,4],[4,5],[3,4]]},{"word":"ONION","span":false,"path":[[4,0],[5,0],[4,1],[4,2],[4,3]]},{"word":"PEPPER","span":false,"path":[[7,4],[7,3],[6,3],[7,2],[6,2],[5,2]]},{"word":"SPINACH","span":false,"path":[[2,4],[1,3],[2,2],[2,3],[3,3],[3,2],[3,1]]}]},{"theme":"Grab your binoculars","grid":["HNANCN","CINRAO","WFRIYR","EOCBRE","AGAOHN","LWTCOF","EDCLAG","BIRHIN"],"words":[{"word":"BIRDWATCHING","span":true,"path":[[7,0],[7,1],[7,2],[6,1],[5,1],[4,2],[5,2],[6,2],[7,3],[7,4],[7,5],[6,5]]},{"word":"CANARY","span":false,"path":[[0,4],[1,4],[0,3],[0,2],[1,3],[2,4]]},{"word":"CROW","span":false,"path":[[3,2],[2,2],[3,1],[2,0]]},{"word":"EAGLE","span":false,"path":[[3,0],[4,0],[4,1],[5,0],[6,0]]},{"word":"FALCON","span":false,"path":[[5,5],[6,4],[6,3],[5,3],[5,4],[4,5]]},{"word":"FINCH","span":false,"path":[[2,1],[1,1],[0,1],[1,0],[0,0]]},{"word":"HERON","span":false,"path":[[4,4],[3,5],[2,5],[1,5],[0,5]]},{"word":"ROBIN","span":false,"path":[[3,4],[4,3],[3,3],[2,3],[1,2]]}]},{"theme":"Roll the dice","grid":["ENEKEH","SOIRCC","DOMTSE","AVERPC","EIILUI","MNZZDT","GAIGHP","RENNIS"],"words":[{"word":"GAMENIGHT","span":true,"path":[[6,0],[6,1],[5,0],[4,0],[5,1],[6,2],[6,3],[6,4],[5,5]]},{"word":"CHECKERS","span":false,"path":[[1,5],[0,5],[0,4],[1,4],[0,3],[0,2],[1,3],[2,4]]},{"word":"DICE","span":false,"path":[[5,4],[4,5],[3,5],[2,5]]},{"word":"DOMINOES","span":false,"path":[[2,0],[2,1],[2,2],[1,2],[0,1],[1,1],[0,0],[1,0]]},{"word":"PUZZLE","span":false,"path":[[3,4],[4,4],[5,3],[5,2],[4,3],[3,2]]},{"word":"SPINNER","span":false,"path":[[7,5],[6,5],[7,4],[7,3],[7,2],[7,1],[7,0]]},{"word":"TRIVIA","span":false,"path":[[2,3],[3,3],[4,2],[3,1],[4,1],[3,0]]}]},{"theme":"Ring the bell","grid":["BETOER","OORCND","KYASSN","RONEIB","KECCKH","CPALOR","BAOMOE","KRWEKC"],"words":[{"word":"HOMEWORK","span":true,"path":[[4,5],[5,4],[6,3],[7,3],[7,2],[6,2],[7,1],[7,0]]},{"word":"BACKPACK","span":false,"path":[[6,0],[6,1],[5,0],[4,0],[5,1],[5,2],[4,3],[4,4]]},{"word":"BINDER","span":false,"path":[[3,5],[3,4],[2,5],[1,5],[0,4],[0,5]]},{"word":"CRAYON","span":false,"path":[[1,3],[1,2],[2,2],[2,1],[3,1],[3,2]]},{"word":"LOCKER","span":false,"path":[[5,3],[6,4],[7,5],[7,4],[6,5],[5,5]]},{"word":"NOTEBOOK","span":false,"path":[[1,4],[0,3],[0,2],[0,1],[0,0],[1,0],[1,1],[2,0]]},{"word":"RECESS","span":false,"path":[[3,0],[4,1],[4,2],[3,3],[2,4],[2,3]]}]},{"theme":"Step right up","grid":["BETRNU","ITHWEN","GOLOAD","PJOCBT","GURPAO","LGTERC","EANHGI","RCNONT"],"words":[{"word":"UNDERTHEBIGTOP","span":true,"path":[[0,5],[1,5],[2,5],[1,4],[0,3],[0,2],[1,2],[0,1],[0,0],[1,0],[2,0],[1,1],[2,1],[3,0]]},{"word":"ACROBAT","span":false,"path":[[4,4],[5,5],[5,4],[4,5],[3,4],[2,4],[3,5]]},{"word":"CANNON","span":false,"path":[[7,1],[6,1],[7,2],[6,2],[7,3],[7,4]]},{"word":"CLOWN","span":false,"path":[[3,3],[2,2],[2,3],[1,3],[0,4]]},{"word":"JUGGLER","span":false,"path":[[3,1],[4,1],[4,0],[5,1],[5,0],[6,0],[7,0]]},{"word":"TIGHTROPE","span":false,"path":[[7,5],[6,5],[6,4],[6,3],[5,2],[4,2],[3,2],[4,3],[5,3]]}]},{"theme":"X marks the spot","grid":["TNOOTY","PAUBAG","RRHLLE","OTEUNO","ACHRST","NOLAAR","RTSLAE","CUSPKN"],"words":[{"word":"TREASUREHUNT","span":true,"path":[[4,5],[5,5],[6,5],[5,4],[4,4],[3,3],[4,3],[3,2],[2,2],[1,2],[0,1],[0,0]]},{"word":"ANCHOR","span":false,"path":[[4,0],[5,0],[4,1],[4,2],[5,1],[6,0]]},{"word":"BOOTY","span":false,"path":[[1,3],[0,2],[0,3],[0,4],[0,5]]},{"word":"CUTLASS","span":false,"path":[[7,0],[7,1],[6,1],[5,2],[5,3],[6,2],[7,2]]},{"word":"GALLEON","span":false,"path":[[1,5],[1,4],[2,3],[2,4],[2,5],[3,5],[3,4]]},{"word":"PARROT","span":false,"path":[[1,0],[1,1],[2,1],[2,0],[3,0],[3,1]]},{"word":"PLANK","span":false,"path":[[7,3],[6,3],[6,4],[7,5],[7,4]]}]},{"theme":"Storm the gates","grid":["EAGOKN","DMRNGI","TIEDTH","SVLTEO","UOAINR","SJMAHT","HDECSE","IELSTL"],"words":[{"word":"MEDIEVALTIMES","span":true,"path":[[1,1],[0,0],[1,0],[2,1],[2,2],[3,1],[4,2],[3,2],[3,3],[4,3],[5,2],[6,2],[7,3]]},{"word":"CASTLE","span":false,"path":[[6,3],[5,3],[6,4],[7,4],[7,5],[6,5]]},{"word":"DRAGON","span":false,"path":[[2,3],[1,2],[0,1],[0,2],[0,3],[1,3]]},{"word":"JOUST","span":false,"path":[[5,1],[4,1],[4,0],[3,0],[2,0]]},{"word":"KNIGHT","span":false,"path":[[0,4],[0,5],[1,5],[1,4],[2,5],[2,4]]},{"word":"SHIELD","span":false,"path":[[5,0],[6,0],[7,0],[7,1],[7,2],[6,1]]},{"word":"THRONE","span":false,"path":[[5,5],[5,4],[4,5],[3,5],[4,4],[3,4]]}]},{"theme":"Crack the case","grid":["INDOEW","MTUVHS","SYIOLE","TETMHU","YRSEET","TRSNTV","ECWIEI","NHECND"],"words":[{"word":"WHODUNIT","span":true,"path":[[0,5],[1,4],[0,3],[0,2],[1,2],[0,1],[0,0],[1,1]]},{"word":"EVIDENCE","span":false,"path":[[4,4],[5,5],[6,5],[7,5],[6,4],[7,4],[7,3],[7,2]]},{"word":"MOTIVE","span":false,"path":[[3,3],[2,3],[3,2],[2,2],[1,3],[0,4]]},{"word":"MYSTERY","span":false,"path":[[1,0],[2,1],[2,0],[3,0],[3,1],[4,1],[4,0]]},{"word":"SLEUTH","span":false,"path":[[1,5],[2,4],[2,5],[3,5],[4,5],[3,4]]},{"word":"TRENCH","span":false,"path":[[5,0],[5,1],[6,0],[7,0],[6,1],[7,1]]},{"word":"WITNESS","span":false,"path":[[6,2],[6,3],[5,4],[5,3],[4,3],[5,2],[4,2]]}]},{"theme":"One more rep","grid":["PEONST","ORSAEB","DIWGLT","RAEIHS","SCSNAP","TLEGKL","UAUNCB","QSSPEI"],"words":[{"word":"PERSONALBEST","span":true,"path":[[0,0],[0,1],[1,1],[1,2],[0,2],[0,3],[1,3],[2,4],[1,5],[1,4],[0,4],[0,5]]},{"word":"BICEPS","span":false,"path":[[6,5],[7,5],[6,4],[7,4],[7,3],[7,2]]},{"word":"CARDIO","span":false,"path":[[4,1],[3,1],[3,0],[2,0],[2,1],[1,0]]},{"word":"LUNGES","span":false,"path":[[5,1],[6,2],[6,3],[5,3],[5,2],[4,2]]},{"word":"PLANK","span":false,"path":[[4,5],[5,5],[4,4],[4,3],[5,4]]},{"word":"SQUATS","span":false,"path":[[7,1],[7,0],[6,0],[6,1],[5,0],[4,0]]},{"word":"WEIGHTS","span":false,"path":[[2,2],[3,2],[3,3],[2,3],[3,4],[2,5],[3,5]]}]},{"theme":"Wasabi on the side","grid":["IRIGOH","WASICP","EAIDNS","GRBEET","INSWAI","LGNEPC","AMOUMK","SARETS"],"words":[{"word":"CHOPSTICKS","span":true,"path":[[1,4],[0,5],[0,4],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5]]},{"word":"GINGER","span":false,"path":[[5,1],[4,0],[4,1],[3,0],[2,0],[3,1]]},{"word":"NIGIRI","span":false,"path":[[2,4],[1,3],[0,3],[0,2],[0,1],[0,0]]},{"word":"SALMON","span":false,"path":[[7,0],[6,0],[5,0],[6,1],[6,2],[5,2]]},{"word":"SEAWEED","span":false,"path":[[4,2],[5,3],[4,4],[4,3],[3,4],[3,3],[2,3]]},{"word":"TEMPURA","span":false,"path":[[7,4],[7,3],[6,4],[5,4],[6,3],[7,2],[7,1]]},{"word":"WASABI","span":false,"path":[[1,0],[1,1],[1,2],[2,1],[3,2],[2,2]]}]},{"theme":"That's amore","grid":["PAGETT","STHARI","OSEVII","ONCPOL","NLAIOC","IGSNHC","ETIOGO","LAORTT"],"words":[{"word":"SPAGHETTI","span":true,"path":[[1,0],[0,0],[0,1],[0,2],[1,2],[0,3],[0,4],[0,5],[1,5]]},{"word":"CANNOLI","span":false,"path":[[3,2],[4,2],[3,1],[4,0],[3,0],[4,1],[5,0]]},{"word":"GELATO","span":false,"path":[[5,1],[6,0],[7,0],[7,1],[6,1],[7,2]]},{"word":"GNOCCHI","span":false,"path":[[6,4],[5,3],[4,4],[5,5],[4,5],[5,4],[4,3]]},{"word":"PESTO","span":false,"path":[[3,3],[2,2],[2,1],[1,1],[2,0]]},{"word":"RAVIOLI","span":false,"path":[[1,4],[1,3],[2,3],[2,4],[3,4],[3,5],[2,5]]},{"word":"RISOTTO","span":false,"path":[[7,3],[6,2],[5,2],[6,3],[7,4],[7,5],[6,5]]}]},{"theme":"Blow out the candles","grid":["STMERM","RAWAEA","EIOPRK","SONEEN","HLLSST","FABCIT","RTGOTF","SOINNE"],"words":[{"word":"MAKEAWISH","span":true,"path":[[0,5],[1,5],[2,5],[1,4],[1,3],[1,2],[2,1],[3,0],[4,0]]},{"word":"BALLOON","span":false,"path":[[5,2],[5,1],[4,1],[4,2],[3,1],[2,2],[3,2]]},{"word":"CONFETTI","span":false,"path":[[5,3],[6,3],[7,4],[6,5],[7,5],[6,4],[5,5],[5,4]]},{"word":"FROSTING","span":false,"path":[[5,0],[6,0],[7,1],[7,0],[6,1],[7,2],[7,3],[6,2]]},{"word":"PRESENTS","span":false,"path":[[2,3],[2,4],[3,3],[4,3],[3,4],[3,5],[4,5],[4,4]]},{"word":"STREAMER","span":false,"path":[[0,0],[0,1],[1,0],[2,0],[1,1],[0,2],[0,3],[0,4]]}]},{"theme":"Cape required","grid":["LAIEKI","LISDCK","IONEWP","RVSROY","EHAMTI","KSIENT","ETDCSE","RCESAP"],"words":[{"word":"SECRETIDENTITY","span":true,"path":[[7,3],[7,2],[7,1],[7,0],[6,0],[6,1],[5,2],[6,2],[5,3],[5,4],[5,5],[4,5],[4,4],[3,5]]},{"word":"CAPES","span":false,"path":[[6,3],[7,4],[7,5],[6,5],[6,4]]},{"word":"HERO","span":false,"path":[[4,1],[4,0],[3,0],[2,1]]},{"word":"MASK","span":false,"path":[[4,3],[4,2],[5,1],[5,0]]},{"word":"POWERS","span":false,"path":[[2,5],[3,4],[2,4],[2,3],[3,3],[3,2]]},{"word":"SIDEKICK","span":false,"path":[[1,2],[0,2],[1,3],[0,3],[0,4],[0,5],[1,4],[1,5]]},{"word":"VILLAIN","span":false,"path":[[3,1],[2,0],[1,0],[0,0],[0,1],[1,1],[2,2]]}]},{"theme":"Out on the range","grid":["ERAGWO","NWONDH","HTRAYS","SETPTU","NRICAC","OLIDNA","AOFFBO","SWALTU"],"words":[{"word":"HOWDYPARTNER","span":true,"path":[[1,5],[0,5],[0,4],[1,4],[2,4],[3,3],[2,3],[2,2],[2,1],[1,0],[0,0],[0,1]]},{"word":"BANDIT","span":false,"path":[[6,4],[5,5],[5,4],[5,3],[4,2],[3,2]]},{"word":"CACTUS","span":false,"path":[[4,3],[4,4],[4,5],[3,4],[3,5],[2,5]]},{"word":"OUTLAW","span":false,"path":[[6,5],[7,5],[7,4],[7,3],[7,2],[7,1]]},{"word":"SALOON","span":false,"path":[[7,0],[6,0],[5,1],[6,1],[5,0],[4,0]]},{"word":"SHERIFF","span":false,"path":[[3,0],[2,0],[3,1],[4,1],[5,2],[6,2],[6,3]]},{"word":"WAGON","span":false,"path":[[1,1],[0,2],[0,3],[1,2],[1,3]]}]},{"theme":"Nothing up my sleeve","grid":["BTPOVA","BIOAEN","AFLTTI","NREIHS","OISVWA","ALUIND","BCLAAS","RAADBR"],"words":[{"word":"ABRACADABRA","span":true,"path":[[5,0],[6,0],[7,0],[7,1],[6,1],[7,2],[7,3],[6,3],[7,4],[7,5],[6,4]]},{"word":"ILLUSION","span":false,"path":[[5,3],[6,2],[5,1],[5,2],[4,2],[4,1],[4,0],[3,0]]},{"word":"LEVITATE","span":false,"path":[[2,2],[3,2],[4,3],[3,3],[2,4],[1,3],[2,3],[1,4]]},{"word":"POOF","span":false,"path":[[0,2],[0,3],[1,2],[2,1]]},{"word":"RABBIT","span":false,"path":[[3,1],[2,0],[1,0],[0,0],[1,1],[0,1]]},{"word":"VANISH","span":false,"path":[[0,4],[0,5],[1,5],[2,5],[3,5],[3,4]]},{"word":"WANDS","span":false,"path":[[4,4],[4,5],[5,4],[5,5],[6,5]]}]},{"theme":"Quiet, please","grid":["OIRSHE","TNEGLE","ICANVS","FSLDIS","PAEOTA","HTNVCK","MCERBS","ROWKOO"],"words":[{"word":"BOOKWORM","span":true,"path":[[6,4],[7,5],[7,4],[7,3],[7,2],[7,1],[7,0],[6,0]]},{"word":"CHAPTER","span":false,"path":[[6,1],[5,0],[4,1],[4,0],[5,1],[6,2],[6,3]]},{"word":"FICTION","span":false,"path":[[3,0],[2,0],[2,1],[1,0],[0,1],[0,0],[1,1]]},{"word":"NOVELS","span":false,"path":[[5,2],[4,3],[5,3],[4,2],[3,2],[3,1]]},{"word":"READING","span":false,"path":[[0,2],[1,2],[2,2],[3,3],[3,4],[2,3],[1,3]]},{"word":"SHELVES","span":false,"path":[[0,3],[0,4],[0,5],[1,4],[2,4],[1,5],[2,5]]},{"word":"STACKS","span":false,"path":[[3,5],[4,4],[4,5],[5,4],[5,5],[6,5]]}]},{"theme":"Rise with the rooster","grid":["EHTNOW","FMHDON","RAABAL","TLLYOE","GEOIHR","EIPSAC","VSTNAR","RAHRBD"],"words":[{"word":"DOWNONTHEFARM","span":true,"path":[[1,3],[0,4],[0,5],[1,5],[1,4],[0,3],[0,2],[0,1],[0,0],[1,0],[2,1],[2,0],[1,1]]},{"word":"BARN","span":false,"path":[[7,4],[6,4],[7,3],[6,3]]},{"word":"HARVEST","span":false,"path":[[7,2],[7,1],[7,0],[6,0],[5,0],[6,1],[6,2]]},{"word":"HAYBALE","span":false,"path":[[1,2],[2,2],[3,3],[2,3],[2,4],[2,5],[3,5]]},{"word":"ORCHARD","span":false,"path":[[3,4],[4,5],[5,5],[4,4],[5,4],[6,5],[7,5]]},{"word":"PIGLET","span":false,"path":[[5,2],[5,1],[4,0],[3,1],[4,1],[3,0]]},{"word":"SILO","span":false,"path":[[5,3],[4,3],[3,2],[4,2]]}]},{"theme":"Two scoops, please","grid":["NAELSP","ILVSKR","LACHNI","BESERI","ANRYWL","NCORSU","ASEGDF","NAPLIT"],"words":[{"word":"BANANASPLIT","span":true,"path":[[3,0],[4,0],[5,0],[6,0],[7,0],[7,1],[6,1],[7,2],[7,3],[7,4],[7,5]]},{"word":"CHERRY","span":false,"path":[[2,2],[2,3],[3,3],[4,2],[5,3],[4,3]]},{"word":"CONES","span":false,"path":[[5,1],[5,2],[4,1],[3,1],[3,2]]},{"word":"FUDGE","span":false,"path":[[6,5],[5,5],[6,4],[6,3],[6,2]]},{"word":"SPRINKLES","span":false,"path":[[0,4],[0,5],[1,5],[2,5],[2,4],[1,4],[0,3],[0,2],[1,3]]},{"word":"SWIRL","span":false,"path":[[5,4],[4,4],[3,5],[3,4],[4,5]]},{"word":"VANILLA","span":false,"path":[[1,2],[0,1],[0,0],[1,0],[1,1],[2,0],[2,1]]}]},{"theme":"Grab your galoshes","grid":["LZIOSA","ERZRGL","ANCDGL","IOSEYE","AOHSRM","ATLABU","PLGOSR","RISHWE"],"words":[{"word":"APRILSHOWERS","span":true,"path":[[5,0],[6,0],[7,0],[7,1],[6,1],[7,2],[7,3],[6,3],[7,4],[7,5],[6,5],[6,4]]},{"word":"DRIZZLE","span":false,"path":[[2,3],[1,3],[0,2],[1,2],[0,1],[0,0],[1,0]]},{"word":"GALOSHES","span":false,"path":[[6,2],[5,3],[5,2],[4,1],[3,2],[4,2],[3,3],[4,3]]},{"word":"RAINCOAT","span":false,"path":[[1,1],[2,0],[3,0],[2,1],[2,2],[3,1],[4,0],[5,1]]},{"word":"SOGGY","span":false,"path":[[0,4],[0,3],[1,4],[2,4],[3,4]]},{"word":"UMBRELLA","span":false,"path":[[5,5],[4,5],[5,4],[4,4],[3,5],[2,5],[1,5],[0,5]]}]},{"theme":"Protect the king","grid":["ETMCEH","BIAKCB","PHSDIM","SORATA","ATOBGQ","TCLEOU","GHKKOE","INSRNE"],"words":[{"word":"CHECKMATE","span":true,"path":[[1,4],[0,5],[0,4],[0,3],[1,3],[0,2],[1,2],[0,1],[0,0]]},{"word":"BISHOP","span":false,"path":[[1,0],[1,1],[2,2],[2,1],[3,1],[2,0]]},{"word":"BOARD","span":false,"path":[[4,3],[4,2],[3,3],[3,2],[2,3]]},{"word":"CASTLE","span":false,"path":[[5,1],[4,0],[3,0],[4,1],[5,2],[5,3]]},{"word":"GAMBIT","span":false,"path":[[4,4],[3,5],[2,5],[1,5],[2,4],[3,4]]},{"word":"KNIGHT","span":false,"path":[[6,2],[7,1],[7,0],[6,0],[6,1],[5,0]]},{"word":"QUEEN","span":false,"path":[[4,5],[5,5],[6,5],[7,5],[7,4]]},{"word":"ROOKS","span":false,"path":[[7,3],[6,4],[5,4],[6,3],[7,2]]}]},{"theme":"Hold still and smile","grid":["SEIAPO","ECETRR","AMLHST","EAENCA","RSSTTY","FEUERD","IEHTPO","TLRSRI"],"words":[{"word":"SAYCHEESE","span":true,"path":[[2,4],[3,5],[4,5],[3,4],[2,3],[1,2],[0,1],[0,0],[1,0]]},{"word":"CAMERA","span":false,"path":[[1,1],[2,0],[2,1],[3,0],[4,0],[3,1]]},{"word":"FILTER","span":false,"path":[[5,0],[6,0],[7,1],[7,0],[6,1],[7,2]]},{"word":"LENSES","span":false,"path":[[2,2],[3,2],[3,3],[4,2],[5,1],[4,1]]},{"word":"PORTRAIT","span":false,"path":[[0,4],[0,5],[1,5],[2,5],[1,4],[0,3],[0,2],[1,3]]},{"word":"SHUTTER","span":false,"path":[[7,3],[6,2],[5,2],[4,3],[4,4],[5,3],[5,4]]},{"word":"TRIPOD","span":false,"path":[[6,3],[7,4],[7,5],[6,4],[6,5],[5,5]]}]},{"theme":"Sweet as can bee","grid":["FRAEGN","LOCTRI","REWENT","SHPOSN","OEYCLE","NBSOML","UZNEOB","ZGINRD"],"words":[{"word":"HONEYCOMB","span":true,"path":[[3,1],[4,0],[5,0],[4,1],[4,2],[4,3],[5,3],[5,4],[6,5]]},{"word":"BUZZING","span":false,"path":[[5,1],[6,0],[7,0],[6,1],[7,2],[6,2],[7,1]]},{"word":"DRONES","span":false,"path":[[7,5],[7,4],[6,4],[7,3],[6,3],[5,2]]},{"word":"FLOWERS","span":false,"path":[[0,0],[1,0],[1,1],[2,2],[2,1],[2,0],[3,0]]},{"word":"NECTAR","span":false,"path":[[2,4],[2,3],[1,2],[1,3],[0,2],[0,1]]},{"word":"POLLEN","span":false,"path":[[3,2],[3,3],[4,4],[5,5],[4,5],[3,5]]},{"word":"STINGER","span":false,"path":[[3,4],[2,5],[1,5],[0,5],[0,4],[0,3],[1,4]]}]},{"theme":"Believe the legends","grid":["ARXNIP","GODGSH","NMONRI","YHNLIF","TULEOF","NOCYKG","IPSCAY","CORNKR"],"words":[{"word":"MYTHOLOGY","span":true,"path":[[2,1],[3,0],[4,0],[3,1],[2,2],[3,3],[4,4],[5,5],[6,5]]},{"word":"CYCLOPS","span":false,"path":[[6,3],[5,3],[5,2],[4,2],[5,1],[6,1],[6,2]]},{"word":"DRAGON","span":false,"path":[[1,2],[0,1],[0,0],[1,0],[1,1],[2,0]]},{"word":"GRIFFIN","span":false,"path":[[1,3],[2,4],[2,5],[3,5],[4,5],[3,4],[2,3]]},{"word":"KRAKEN","span":false,"path":[[7,4],[7,5],[6,4],[5,4],[4,3],[3,2]]},{"word":"SPHINX","span":false,"path":[[1,4],[0,5],[1,5],[0,4],[0,3],[0,2]]},{"word":"UNICORN","span":false,"path":[[4,1],[5,0],[6,0],[7,0],[7,1],[7,2],[7,3]]}]},{"theme":"Are we there yet?","grid":["OATRIP","RLDANS","IAECKS","MGEITD","YTSLOE","RPYALU","EELSER","NCSTOM"],"words":[{"word":"ROADTRIP","span":true,"path":[[1,0],[0,0],[0,1],[1,2],[0,2],[0,3],[0,4],[0,5]]},{"word":"DETOUR","span":false,"path":[[3,5],[4,5],[3,4],[4,4],[5,5],[6,5]]},{"word":"MILEAGE","span":false,"path":[[3,0],[2,0],[1,1],[2,2],[2,1],[3,1],[3,2]]},{"word":"MOTELS","span":false,"path":[[7,5],[7,4],[7,3],[6,4],[5,4],[6,3]]},{"word":"PLAYLIST","span":false,"path":[[5,1],[6,2],[5,3],[5,2],[4,3],[3,3],[4,2],[4,1]]},{"word":"SCENERY","span":false,"path":[[7,2],[7,1],[6,0],[7,0],[6,1],[5,0],[4,0]]},{"word":"SNACKS","span":false,"path":[[1,5],[1,4],[1,3],[2,3],[2,4],[2,5]]}]},{"theme":"Sort the whites","grid":["EPMHTN","RSCAEA","SOKGCE","TERTHL","DEASBE","SIRINL","NLEWIK","CYCNSP"],"words":[{"word":"SPINCYCLE","span":true,"path":[[7,4],[7,5],[6,4],[7,3],[7,2],[7,1],[7,0],[6,1],[6,2]]},{"word":"BLEACH","span":false,"path":[[4,4],[3,5],[2,5],[1,5],[2,4],[3,4]]},{"word":"DETERGENT","span":false,"path":[[4,0],[4,1],[3,0],[3,1],[3,2],[2,3],[1,4],[0,5],[0,4]]},{"word":"HAMPER","span":false,"path":[[0,3],[1,3],[0,2],[0,1],[0,0],[1,0]]},{"word":"SOCKS","span":false,"path":[[2,0],[2,1],[1,2],[2,2],[1,1]]},{"word":"STAINS","span":false,"path":[[4,3],[3,3],[4,2],[5,1],[6,0],[5,0]]},{"word":"WRINKLE","span":false,"path":[[6,3],[5,2],[5,3],[5,4],[6,5],[5,5],[4,5]]}]},{"theme":"Win a goldfish","grid":["SNLCKE","NOWSTC","NELTID","SUFGON","IWCORZ","ERHSEI","DSRERP","IRFEEL"],"words":[{"word":"FERRISWHEEL","span":true,"path":[[7,2],[7,3],[6,2],[5,1],[4,0],[3,0],[4,1],[5,2],[6,3],[7,4],[7,5]]},{"word":"CLOWNS","span":false,"path":[[0,3],[0,2],[1,1],[1,2],[0,1],[0,0]]},{"word":"CORNDOG","span":false,"path":[[4,2],[4,3],[4,4],[3,5],[2,5],[3,4],[3,3]]},{"word":"FUNNEL","span":false,"path":[[3,2],[3,1],[2,0],[1,0],[2,1],[2,2]]},{"word":"PRIZES","span":false,"path":[[6,5],[6,4],[5,5],[4,5],[5,4],[5,3]]},{"word":"RIDES","span":false,"path":[[7,1],[7,0],[6,0],[5,0],[6,1]]},{"word":"TICKETS","span":false,"path":[[2,3],[2,4],[1,5],[0,4],[0,5],[1,4],[1,3]]}]},{"theme":"Pinkies up","grid":["SEESUC","MTPARE","AERAEK","ECELBT","NYHRLT","OHTIUE","BISCPT","YTRAAE"],"words":[{"word":"TEAPARTY","span":true,"path":[[6,5],[7,5],[7,4],[6,4],[7,3],[7,2],[7,1],[7,0]]},{"word":"BISCUIT","span":false,"path":[[6,0],[6,1],[6,2],[6,3],[5,4],[5,3],[5,2]]},{"word":"CREAM","span":false,"path":[[3,1],[2,2],[2,1],[2,0],[1,0]]},{"word":"HERBAL","span":false,"path":[[4,2],[3,2],[4,3],[3,4],[2,3],[3,3]]},{"word":"HONEY","span":false,"path":[[5,1],[5,0],[4,0],[3,0],[4,1]]},{"word":"KETTLE","span":false,"path":[[2,5],[2,4],[3,5],[4,5],[4,4],[5,5]]},{"word":"SAUCER","span":false,"path":[[0,3],[1,3],[0,4],[0,5],[1,5],[1,4]]},{"word":"STEEP","span":false,"path":[[0,0],[1,1],[0,1],[0,2],[1,2]]}]},{"theme":"Aim for the pocket","grid":["NERGAM","TLCTOE","APEWLB","EFNIPE","RSLETR","TLYURT","HASGLE","UMBPTI"],"words":[{"word":"PERFECTGAME","span":true,"path":[[2,1],[3,0],[4,0],[3,1],[2,2],[1,2],[1,3],[0,3],[0,4],[0,5],[1,5]]},{"word":"ALLEY","span":false,"path":[[6,1],[5,1],[4,2],[4,3],[5,2]]},{"word":"BOWLER","span":false,"path":[[2,5],[1,4],[2,3],[2,4],[3,5],[4,5]]},{"word":"GUTTER","span":false,"path":[[6,3],[5,3],[4,4],[5,5],[6,5],[5,4]]},{"word":"PINS","span":false,"path":[[3,4],[3,3],[3,2],[4,1]]},{"word":"RENTAL","span":false,"path":[[0,2],[0,1],[0,0],[1,0],[2,0],[1,1]]},{"word":"SPLIT","span":false,"path":[[6,2],[7,3],[6,4],[7,5],[7,4]]},{"word":"THUMB","span":false,"path":[[5,0],[6,0],[7,0],[7,1],[7,2]]}]},{"theme":"Thread the needle","grid":["ROWEEE","KTTNLD","SCIBRI","HFALTC","TNPEBH","RHIAMI","EBBTNE","ADOBTR"],"words":[{"word":"NEEDLEWORK","span":true,"path":[[1,3],[0,4],[0,5],[1,5],[1,4],[0,3],[0,2],[0,1],[0,0],[1,0]]},{"word":"BOBBIN","span":false,"path":[[6,1],[7,2],[7,3],[6,2],[5,2],[4,1]]},{"word":"FABRIC","span":false,"path":[[3,1],[3,2],[2,3],[2,4],[2,5],[3,5]]},{"word":"PATTERN","span":false,"path":[[4,2],[5,3],[6,3],[7,4],[6,5],[7,5],[6,4]]},{"word":"STITCH","span":false,"path":[[2,0],[1,1],[2,2],[1,2],[2,1],[3,0]]},{"word":"THIMBLE","span":false,"path":[[3,4],[4,5],[5,5],[5,4],[4,4],[3,3],[4,3]]},{"word":"THREAD","span":false,"path":[[4,0],[5,1],[5,0],[6,0],[7,0],[7,1]]}]},{"theme":"Reach the summit","grid":["OMNOTS","NUEOAC","ATBETN","ITRAIL","NSTMEP","CRMIUA","LMASDK","EBEGIR"],"words":[{"word":"MOUNTAINTRAIL","span":true,"path":[[0,1],[0,0],[1,1],[1,0],[2,1],[2,0],[3,0],[4,0],[3,1],[3,2],[3,3],[3,4],[3,5]]},{"word":"BOOTS","span":false,"path":[[2,2],[1,3],[0,3],[0,4],[0,5]]},{"word":"CANTEEN","span":false,"path":[[1,5],[1,4],[2,5],[2,4],[2,3],[1,2],[0,2]]},{"word":"PEAK","span":false,"path":[[4,5],[4,4],[5,5],[6,5]]},{"word":"RIDGE","span":false,"path":[[7,5],[7,4],[6,4],[7,3],[7,2]]},{"word":"SCRAMBLE","span":false,"path":[[4,1],[5,0],[5,1],[6,2],[6,1],[7,1],[6,0],[7,0]]},{"word":"SUMMIT","span":false,"path":[[6,3],[5,4],[4,3],[5,2],[5,3],[4,2]]}]},{"theme":"Behind the glass","grid":["BBUALF","LSBCSI","ETIATH","RPENGE","OAGHET","GPUSLR","LPYIFA","ALAROC"],"words":[{"word":"TROPICALFISH","span":true,"path":[[2,1],[3,0],[4,0],[3,1],[2,2],[1,3],[0,3],[0,4],[0,5],[1,5],[1,4],[2,5]]},{"word":"ALGAE","span":false,"path":[[7,0],[6,0],[5,0],[4,1],[3,2]]},{"word":"ANGELFISH","span":false,"path":[[2,3],[3,3],[3,4],[4,4],[5,4],[6,4],[6,3],[5,3],[4,3]]},{"word":"BUBBLES","span":false,"path":[[1,2],[0,2],[0,1],[0,0],[1,0],[2,0],[1,1]]},{"word":"CORAL","span":false,"path":[[7,5],[7,4],[7,3],[7,2],[7,1]]},{"word":"GUPPY","span":false,"path":[[4,2],[5,2],[5,1],[6,1],[6,2]]},{"word":"TETRA","span":false,"path":[[2,4],[3,5],[4,5],[5,5],[6,5]]}]},{"theme":"Penny for a gumball","grid":["ECIROI","SWTOLC","ETEOTH","EACGDF","RSLLIU","TAOYLP","INMFAO","MLEFTP"],"words":[{"word":"SWEETTOOTH","span":true,"path":[[1,0],[1,1],[2,0],[3,0],[2,1],[1,2],[2,3],[1,3],[2,4],[2,5]]},{"word":"CARAMEL","span":false,"path":[[3,2],[3,1],[4,0],[5,1],[6,2],[7,2],[7,1]]},{"word":"FUDGE","span":false,"path":[[3,5],[4,5],[3,4],[3,3],[2,2]]},{"word":"LICORICE","span":false,"path":[[1,4],[0,5],[1,5],[0,4],[0,3],[0,2],[0,1],[0,0]]},{"word":"LOLLIPOP","span":false,"path":[[4,2],[5,2],[4,3],[5,4],[4,4],[5,5],[6,5],[7,5]]},{"word":"MINTS","span":false,"path":[[7,0],[6,0],[6,1],[5,0],[4,1]]},{"word":"TAFFY","span":false,"path":[[7,4],[6,4],[7,3],[6,3],[5,3]]}]},{"theme":"Lights out","grid":["PILEAW","SLZYGN","AOSOIN","DMWNOP","EQAJAT","TKUILS","SUCRDW","MAETEE"],"words":[{"word":"SWEETDREAMS","span":true,"path":[[5,5],[6,5],[7,5],[7,4],[7,3],[6,4],[6,3],[7,2],[7,1],[7,0],[6,0]]},{"word":"PAJAMAS","span":false,"path":[[3,5],[4,4],[4,3],[4,2],[3,1],[2,0],[1,0]]},{"word":"PILLOW","span":false,"path":[[0,0],[0,1],[0,2],[1,1],[2,1],[3,2]]},{"word":"QUILT","span":false,"path":[[4,1],[5,2],[5,3],[5,4],[4,5]]},{"word":"SNOOZE","span":false,"path":[[2,2],[3,3],[3,4],[2,3],[1,2],[0,3]]},{"word":"TUCKED","span":false,"path":[[5,0],[6,1],[6,2],[5,1],[4,0],[3,0]]},{"word":"YAWNING","span":false,"path":[[1,3],[0,4],[0,5],[1,5],[2,4],[2,5],[1,4]]}]}];
 const ROWS = 8, COLS = 6;
@@ -248,7 +263,7 @@ const Sound = (() => {
     untick(){ tone(300, 0, 0.07, "sine", 0.10); },
     bad(){ tone(130, 0, 0.18, "square", 0.10, 90); },
     word(){ [523,659,784].forEach((f,i)=>tone(f, i*0.09, 0.16, "triangle", 0.16)); },
-    spangram(){ [392,523,659,784,1047].forEach((f,i)=>tone(f, i*0.1, 0.22, "triangle", 0.18)); },
+    starword(){ [392,523,659,784,1047].forEach((f,i)=>tone(f, i*0.1, 0.22, "triangle", 0.18)); },
     hint(){ tone(880, 0, 0.12, "sine", 0.12); tone(1175, 0.13, 0.16, "sine", 0.12); },
     win(){
       [523,659,784,1047].forEach((f,i)=>tone(f, i*0.12, 0.2, "triangle", 0.16));
@@ -266,7 +281,7 @@ function buzz(pattern){
    session's memory. Saves: per-puzzle progress for ALL puzzles, the
    solved list, streak, best, current puzzle, and mute preference. */
 const Store = {
-  data: { streak: 0, best: 0, idx: 0, solved: [], prog: {}, muted: false },
+  data: { streak: 0, best: 0, idx: 0, solved: [], perfect: [], prog: {}, muted: false, seenIntro: false },
   backend: "memory",
   async load(){
     if (window.ytgame && ytgame.game && ytgame.game.loadData){
@@ -296,6 +311,7 @@ const Store = {
       delete this.data.cur;
     }
     if (!Array.isArray(this.data.solved)) this.data.solved = [];
+    if (!Array.isArray(this.data.perfect)) this.data.perfect = [];
   },
   save(){
     const json = JSON.stringify(this.data);
@@ -337,7 +353,7 @@ let puzzle, cur, cells = [], selection = [], foundCount = 0, hintsLeft = 3, hint
 const foundWords = new Set();
 const hintedWords = new Set();
 const isAdjacent = (a,b) => Math.abs(a[0]-b[0])<=1 && Math.abs(a[1]-b[1])<=1 && !(a[0]===b[0]&&a[1]===b[1]);
-const isLocked = (r,c) => cells[r][c].classList.contains("found") || cells[r][c].classList.contains("spangram");
+const isLocked = (r,c) => cells[r][c].classList.contains("found") || cells[r][c].classList.contains("starword");
 const selIndex = (r,c) => selection.findIndex(p => p[0]===r && p[1]===c);
 
 function sizeBoard(){
@@ -357,6 +373,7 @@ function loadPuzzle(i){
   Store.data.idx = i;
   puzzle = PUZZLES[i];
   selection = []; foundCount = 0; solved = false;
+  qaShown = false;
   foundWords.clear(); hintedWords.clear();
 
   if (!Store.data.prog[i]){
@@ -371,7 +388,13 @@ function loadPuzzle(i){
     cells.push([]);
     for (let c = 0; c < COLS; c++){
       const d = document.createElement("div");
-      d.className = "cell";
+      d.className = "cell enter";
+      d.style.setProperty("--d", ((r * COLS + c) * 9) + "ms");
+      d.addEventListener("animationend", function done(){
+        d.classList.remove("enter");
+        d.style.removeProperty("--d");
+        d.removeEventListener("animationend", done);
+      });
       d.textContent = puzzle.grid[r][c];
       d.dataset.r = r; d.dataset.c = c;
       d.setAttribute("role","gridcell");
@@ -385,7 +408,7 @@ function loadPuzzle(i){
     const w = puzzle.words.find(x => x.word === name);
     if (!w || foundWords.has(name)) return;
     foundWords.add(name); foundCount++;
-    const cls = w.span ? "spangram" : "found";
+    const cls = w.span ? "starword" : "found";
     w.path.forEach(([r,c]) => cells[r][c].classList.add(cls));
   });
   // restore hint outlines for words still unfound
@@ -586,8 +609,8 @@ function lockWord(match, text){
   foundCount++;
   if (!cur.found.includes(match.word)) cur.found.push(match.word);
   Store.save();
-  const cls = match.span ? "spangram" : "found";
-  match.span ? Sound.spangram() : Sound.word();
+  const cls = match.span ? "starword" : "found";
+  match.span ? Sound.starword() : Sound.word();
   buzz(match.span ? [20, 40, 30] : 15);
   match.path.forEach(([r,c], i) => {
     const el = cells[r][c];
@@ -599,7 +622,7 @@ function lockWord(match, text){
   currentEl.textContent = text;
   currentEl.className = "flash-good";
   progressEl.innerHTML = `<b>${foundCount}</b> of ${puzzle.words.length}`;
-  toast(match.span ? "\u2726 The spangram!" : "Nice find!");
+  toast(match.span ? "\u2726 The Star Word!" : "Nice find!");
   if (foundCount === puzzle.words.length) setTimeout(win, match.path.length * 35 + 450);
 }
 
@@ -630,6 +653,7 @@ function win(){
   Store.data.streak++;
   if (Store.data.streak > Store.data.best) Store.data.best = Store.data.streak;
   if (!Store.data.solved.includes(Store.data.idx)) Store.data.solved.push(Store.data.idx);
+  if (hintsUsed === 0 && !Store.data.perfect.includes(Store.data.idx)) Store.data.perfect.push(Store.data.idx);
   Store.save();
   refreshStreak();
   refreshMeta();
@@ -642,7 +666,11 @@ function win(){
 }
 
 function showWin(fresh){
-  document.getElementById("winLine").textContent = `\u201C${puzzle.theme}\u201D \u2014 solved.`;
+  const finale = Store.data.solved.length === PUZZLES.length;
+  document.querySelector("#win h2").textContent = finale ? "\u2728 Galaxy Brain! \u2728" : "Brilliant!";
+  document.getElementById("winLine").textContent = finale
+    ? `All ${PUZZLES.length} puzzles solved \u2014 ${Store.data.perfect.length} of them hint-free. The whole sky is yours.`
+    : `\u201C${puzzle.theme}\u201D \u2014 solved.`;
   document.getElementById("winHints").textContent =
     hintsUsed === 0 ? "A perfect, hint-free sky." : `Solved with ${hintsUsed} hint${hintsUsed>1?"s":""}.`;
   document.getElementById("winStreak").textContent =
@@ -657,6 +685,7 @@ document.getElementById("nextBtn").addEventListener("click", () => {
 document.getElementById("replayBtn").addEventListener("click", () => {
   delete Store.data.prog[Store.data.idx];
   Store.data.solved = Store.data.solved.filter(n => n !== Store.data.idx);
+  Store.data.perfect = Store.data.perfect.filter(n => n !== Store.data.idx);
   Store.save();
   loadPuzzle(Store.data.idx);
 });
@@ -685,7 +714,9 @@ metaEl.addEventListener("click", () => {
   grid.innerHTML = "";
   PUZZLES.forEach((p, i) => {
     const b = document.createElement("button");
-    b.className = "pk" + (Store.data.solved.includes(i) ? " solved" : "") + (i === Store.data.idx ? " now" : "");
+    b.className = "pk"
+      + (Store.data.perfect.includes(i) ? " perfect" : (Store.data.solved.includes(i) ? " solved" : ""))
+      + (i === Store.data.idx ? " now" : "");
     b.textContent = i + 1;
     b.title = p.theme;
     b.addEventListener("click", () => {
@@ -695,11 +726,39 @@ metaEl.addEventListener("click", () => {
     grid.appendChild(b);
   });
   document.getElementById("pickerSub").textContent =
-    `${Store.data.solved.length} of ${PUZZLES.length} solved \u00b7 progress on every board is saved`;
+    `${Store.data.solved.length} of ${PUZZLES.length} solved`
+    + (Store.data.perfect.length ? ` \u00b7 \u2605 ${Store.data.perfect.length} hint-free` : "")
+    + ` \u00b7 progress on every board is saved`;
   pickerEl.classList.add("show");
 });
 document.getElementById("pickerClose").addEventListener("click", () => pickerEl.classList.remove("show"));
 pickerEl.addEventListener("click", e => { if (e.target === pickerEl) pickerEl.classList.remove("show"); });
+
+/* ================= QA reveal: press and hold the theme card ================= */
+let qaTimer = null, qaShown = false;
+const themeCard = document.querySelector(".theme-card");
+function qaToggle(){
+  qaShown = !qaShown;
+  document.querySelectorAll(".cell.hinted").forEach(el => el.classList.remove("hinted"));
+  if (qaShown){
+    puzzle.words.forEach(w => {
+      if (foundWords.has(w.word)) return;
+      w.path.forEach(([r,c]) => cells[r][c].classList.add("hinted"));
+    });
+    toast("QA: solution outlined \u2014 hold again to hide");
+  } else {
+    hintedWords.forEach(name => {       // restore only the real, purchased hints
+      const w = puzzle.words.find(x => x.word === name);
+      if (w && !foundWords.has(name)) w.path.forEach(([r,c]) => cells[r][c].classList.add("hinted"));
+    });
+    toast("QA outlines hidden");
+  }
+}
+themeCard.addEventListener("pointerdown", () => {
+  qaTimer = setTimeout(qaToggle, 1200);
+});
+["pointerup","pointerleave","pointercancel"].forEach(ev =>
+  themeCard.addEventListener(ev, () => clearTimeout(qaTimer)));
 
 /* ================= Toast ================= */
 let toastTimer;
@@ -717,6 +776,19 @@ function toast(msg){
   soundBtn.textContent = Store.data.muted ? "\u{1F507}" : "\u{1F50A}";
   refreshStreak();
   loadPuzzle(Store.data.idx);
+  if (!Store.data.seenIntro){
+    document.getElementById("intro").classList.add("show");
+  }
+  document.getElementById("introBtn").addEventListener("click", () => {
+    document.getElementById("intro").classList.remove("show");
+    Store.data.seenIntro = true;
+    Store.save();
+  });
+  if (window.ytgame && ytgame.system){
+    try {
+      if (ytgame.system.onPause) ytgame.system.onPause(() => Store.save());
+    } catch(e){}
+  }
   if (window.ytgame && ytgame.game){
     try {
       if (ytgame.game.firstFrameReady) ytgame.game.firstFrameReady();
