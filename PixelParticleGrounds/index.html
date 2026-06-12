@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pixel Particle Grounds</title>
+<style>
+  :root {
+    --bg: #262119;
+    --panel: #362e24;
+    --panel-deep: #2d261d;
+    --ink: #d8cdb4;
+    --ink-dim: #8d8268;
+    --line: #4a4133;
+    --shadow: #16120c;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Courier New", ui-monospace, monospace;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 12px 6px;
+    flex: 0 0 auto;
+  }
+  h1 { font-size: 13px; letter-spacing: 3px; font-weight: 700; }
+  h1 span { color: var(--ink-dim); }
+  #stats { font-size: 10px; letter-spacing: 1px; color: var(--ink-dim); }
+
+  #stage {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0 8px;
+  }
+  #frame {
+    border: 3px solid var(--line);
+    box-shadow: 4px 4px 0 var(--shadow);
+    background: #1c1812;
+    line-height: 0;
+  }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: block;
+  }
+
+  /* ---- bottom dock ---- */
+  #dock {
+    flex: 0 0 auto;
+    background: var(--panel-deep);
+    border-top: 3px solid var(--line);
+    padding: 8px 0 calc(8px + var(--safe-b));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  #stripwrap {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+  .arrow {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 36px;
+    z-index: 2;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 2px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shadow);
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .arrow.show { display: flex; }
+  #arrL { left: 4px; animation: nudgeL 1.1s ease-in-out 3; }
+  #arrR { right: 4px; animation: nudgeR 1.1s ease-in-out 3; }
+  @keyframes nudgeR { 0%,100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+  @keyframes nudgeL { 0%,100% { transform: translateX(0); } 50% { transform: translateX(-4px); } }
+  @media (prefers-reduced-motion: reduce) { .arrow { animation: none !important; } }
+  #strip {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 10px;
+    scrollbar-width: none;
+  }
+  #strip::-webkit-scrollbar { display: none; }
+  /* fade hints: shown via JS when there's hidden content in that direction */
+  #strip.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent);
+                  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent); }
+  #strip.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 34px, #000 100%);
+                  mask-image: linear-gradient(90deg, transparent, #000 34px, #000 100%); }
+  #strip.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 34px, #000 calc(100% - 34px), transparent);
+                         mask-image: linear-gradient(90deg, transparent, #000 34px, #000 calc(100% - 34px), transparent); }
+  /* wide screens: no scrolling, wrap into centered rows so every tool is visible */
+  @media (min-width: 720px) {
+    #strip { flex-wrap: wrap; justify-content: center; overflow-x: visible; }
+    #strip.fade-l, #strip.fade-r, #strip.fade-l.fade-r { -webkit-mask-image: none; mask-image: none; }
+    .divider { display: none; }
+    .arrow { display: none !important; }
+  }
+  .divider {
+    flex: 0 0 2px;
+    background: var(--line);
+    margin: 4px 3px;
+  }
+  button.el {
+    flex: 0 0 auto;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--panel);
+    border: 2px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shadow);
+    min-width: 62px;
+    min-height: 52px;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  button.el .chip {
+    width: 16px; height: 16px;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,.4);
+  }
+  button.el.on { background: var(--ink); color: var(--panel-deep); border-color: var(--ink); }
+  button.el.danger.on { background: #c75f33; border-color: #c75f33; color: #1c1812; }
+  button.el:focus-visible, button.act:focus-visible { outline: 2px dashed var(--ink); outline-offset: 2px; }
+
+  #actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 0 10px;
+    flex-wrap: nowrap;
+  }
+  .ctl {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 1px;
+    color: var(--ink-dim); text-transform: uppercase;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1 1 auto;
+    min-width: 60px;
+    height: 8px;
+    background: var(--line);
+    border: 1px solid var(--shadow);
+    touch-action: pan-x;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px; height: 24px;
+    background: var(--ink);
+    border: 2px solid var(--shadow);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px;
+    background: var(--ink);
+    border: 2px solid var(--shadow);
+    border-radius: 0;
+  }
+  button.act {
+    font-family: inherit;
+    font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--ink-dim);
+    background: var(--panel);
+    border: 2px solid var(--line);
+    box-shadow: 2px 2px 0 var(--shadow);
+    min-height: 40px;
+    padding: 6px 10px;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  button.act:disabled { opacity: .4; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #frame { transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PIXEL PARTICLE <span>// grounds</span></h1>
+  <div id="stats">0 cells</div>
+</header>
+
+<div id="stage"><div id="frame"><canvas id="c"></canvas></div></div>
+
+<div id="dock">
+  <div id="stripwrap">
+    <button id="arrL" class="arrow" aria-label="Scroll tools left">&#9664;</button>
+    <div id="strip"></div>
+    <button id="arrR" class="arrow" aria-label="Scroll tools right">&#9654;</button>
+  </div>
+  <div id="actions">
+    <label class="ctl">Brush
+      <input type="range" id="brush" min="1" max="16" value="5">
+    </label>
+    <button class="act" id="pause">Pause</button>
+    <button class="act" id="clear">Clear</button>
+    <button class="act" id="save">Save</button>
+    <button class="act" id="restore" disabled>Restore</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------------- elements ----------------
+  const EMPTY=0, SAND=1, WATER=2, STONE=3, WOOD=4, FIRE=5, SMOKE=6,
+        OIL=7, ACID=8, LAVA=9, PLANT=10, ICE=11, GLASS=12, GUNP=13,
+        TNT=14, STEAM=15;
+  const T_ERASE=100, T_BOMB=101, T_METEOR=102;
+
+  const DEF = {
+    [SAND]:  { name:'Sand',   base:[210,171,98]  },
+    [GUNP]:  { name:'Powder', base:[88,82,74]    },
+    [WATER]: { name:'Water',  base:[93,142,166]  },
+    [OIL]:   { name:'Oil',    base:[82,72,98]    },
+    [ACID]:  { name:'Acid',   base:[143,174,74]  },
+    [LAVA]:  { name:'Lava',   base:[178,74,38]   },
+    [STONE]: { name:'Stone',  base:[110,103,92]  },
+    [WOOD]:  { name:'Wood',   base:[124,90,54]   },
+    [GLASS]: { name:'Glass',  base:[160,182,176] },
+    [ICE]:   { name:'Ice',    base:[168,196,200] },
+    [PLANT]: { name:'Plant',  base:[111,143,79]  },
+    [TNT]:   { name:'TNT',    base:[163,77,63]   },
+    [FIRE]:  { name:'Fire',   base:[199,95,51]   },
+    [SMOKE]: { name:'Smoke',  base:[131,125,112] },
+    [STEAM]: { name:'Steam',  base:[176,184,181] },
+    [T_ERASE]:  { name:'Erase',  base:[28,24,18]   },
+    [T_BOMB]:   { name:'Bomb',   base:[199,95,51]  },
+    [T_METEOR]: { name:'Meteor', base:[224,134,64] },
+  };
+
+  const GROUPS = [
+    { label:'Chaos',  danger:true, items:[FIRE, T_BOMB, T_METEOR] },
+    { label:'Build',  items:[STONE, WOOD, GLASS, ICE, PLANT, TNT] },
+    { label:'Powder', items:[SAND, GUNP] },
+    { label:'Liquid', items:[WATER, OIL, ACID, LAVA] },
+    { label:'Tool',   items:[T_ERASE] },
+  ];
+
+  const SOLID_PAINT = new Set([STONE, WOOD, GLASS, ICE, PLANT, TNT]);
+  const isGas    = t => t === SMOKE || t === STEAM;
+  const isLiquid = t => t === WATER || t === OIL || t === ACID || t === LAVA;
+  const DENS = { [OIL]:1, [WATER]:2, [ACID]:2, [LAVA]:3 };
+  const FLAM = { [WOOD]:0.05, [PLANT]:0.25, [OIL]:0.45 };
+
+  // ---------------- grid ----------------
+  const CELL = 4;
+  let W = 0, H = 0;
+  let type, life, vari, stamp;
+  let frame = 1;
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const frameEl = document.getElementById('frame');
+  const stage = document.getElementById('stage');
+  let img;
+
+  function sizeGrid(preserve) {
+    const availW = stage.clientWidth - 22;   // borders + padding
+    const availH = stage.clientHeight - 22;
+    const nW = Math.max(50, Math.floor(Math.min(availW, 820) / CELL));
+    const nH = Math.max(40, Math.floor(availH / CELL));
+    // ignore tiny viewport jitter (mobile URL bar collapse) so builds survive
+    if (preserve && Math.abs(nW - W) < 8 && Math.abs(nH - H) < 8) return;
+
+    const oldT = type, oldL = life, oldV = vari, oldW = W, oldH = H;
+    W = nW; H = nH;
+    canvas.width = W;
+    canvas.height = H;
+    canvas.style.width  = (W * CELL) + 'px';
+    canvas.style.height = (H * CELL) + 'px';
+    const n = W * H;
+    type  = new Uint8Array(n);
+    life  = new Uint8Array(n);
+    vari  = new Uint8Array(n);
+    stamp = new Uint32Array(n);
+    for (let i = 0; i < n; i++) vari[i] = (Math.random() * 24) | 0;
+    if (preserve && oldT) {
+      // copy overlapping region, anchored to the bottom so floors stay put
+      const cw = Math.min(W, oldW), ch = Math.min(H, oldH);
+      for (let y = 0; y < ch; y++) {
+        const sy = oldH - ch + y, dy = H - ch + y;
+        for (let x = 0; x < cw; x++) {
+          const s = sy * oldW + x, d = dy * W + x;
+          type[d] = oldT[s]; life[d] = oldL[s]; vari[d] = oldV[s];
+        }
+      }
+    }
+    img = ctx.createImageData(W, H);
+    const dd = img.data;
+    for (let i = 3; i < dd.length; i += 4) dd[i] = 255;
+  }
+
+  const idx = (x, y) => y * W + x;
+  const inB = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+
+  function set(i, t) {
+    type[i] = t;
+    vari[i] = (Math.random() * 24) | 0;
+    life[i] = 0;
+    if (t === FIRE)  life[i] = 24 + (Math.random() * 40) | 0;
+    if (t === SMOKE) life[i] = 60 + (Math.random() * 80) | 0;
+    if (t === STEAM) life[i] = 50 + (Math.random() * 70) | 0;
+    if (t === GLASS) vari[i] = (Math.random() * 8) | 0;
+  }
+  function swap(a, b) {
+    let t = type[a]; type[a] = type[b]; type[b] = t;
+    t = life[a]; life[a] = life[b]; life[b] = t;
+    t = vari[a]; vari[a] = vari[b]; vari[b] = t;
+    stamp[a] = frame; stamp[b] = frame;
+  }
+
+  // ---------------- explosions ----------------
+  const blasts = [];
+  let shakeMag = 0;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function queueBlast(x, y, r, delay) { blasts.push({ x, y, r, d: delay | 0 }); }
+
+  function doBlast(cx, cy, r) {
+    shakeMag = Math.min(14, shakeMag + r * 0.55);
+    if (navigator.vibrate && !reducedMotion) navigator.vibrate(Math.min(80, r * 5));
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const dsq = dx*dx + dy*dy;
+        if (dsq > r*r) continue;
+        const x = cx + dx, y = cy + dy;
+        if (!inB(x, y)) continue;
+        const i = idx(x, y);
+        const t = type[i];
+        const f = Math.sqrt(dsq) / r;
+
+        if (t === TNT)  { type[i] = EMPTY; queueBlast(x, y, 15, 2 + (Math.random()*6|0)); continue; }
+        if (t === GUNP) { type[i] = EMPTY; queueBlast(x, y, 6,  1 + (Math.random()*3|0)); continue; }
+        if (t === STONE && f > 0.55) continue;
+        if (t === GLASS && Math.random() < 0.95) { type[i] = EMPTY; }
+
+        if (f < 0.5) { set(i, FIRE); life[i] = 8 + (Math.random()*18|0); }
+        else if (Math.random() < 1.15 - f) set(i, Math.random() < 0.5 ? FIRE : SMOKE);
+        else if (t !== STONE) type[i] = EMPTY;
+        stamp[i] = frame;
+      }
+    }
+  }
+  function processBlasts() {
+    for (let i = blasts.length - 1; i >= 0; i--) {
+      const b = blasts[i];
+      if (b.d-- > 0) continue;
+      blasts.splice(i, 1);
+      doBlast(b.x, b.y, b.r);
+    }
+  }
+
+  // ---------------- meteors ----------------
+  const meteors = [];
+  function spawnMeteor(tx, ty) {
+    const sx = Math.max(4, Math.min(W - 4, tx - 25 + Math.random() * 12));
+    const m = { x: sx, y: 2, vx: 0, vy: 1.6 + Math.random() * 0.5 };
+    m.vx = (tx - sx) / (Math.max(6, ty - m.y) / m.vy);
+    m.vx = Math.max(-1.2, Math.min(1.2, m.vx));
+    meteors.push(m);
+  }
+  function stepMeteors() {
+    for (let k = meteors.length - 1; k >= 0; k--) {
+      const m = meteors[k];
+      const steps = Math.ceil(Math.max(Math.abs(m.vx), m.vy));
+      let dead = false;
+      for (let s = 0; s < steps && !dead; s++) {
+        m.x += m.vx / steps;
+        m.y += m.vy / steps;
+        const x = m.x | 0, y = m.y | 0;
+        if (!inB(x, y) || y >= H - 1) {
+          if (inB(x, Math.min(y, H - 1))) doBlast(x, Math.min(y, H - 1), 14);
+          dead = true; break;
+        }
+        const t = type[idx(x, y)];
+        if (t !== EMPTY && !isGas(t) && t !== FIRE) { doBlast(x, y, 14); dead = true; break; }
+        for (let j = 0; j < 3; j++) {
+          const fx = x + ((Math.random()*3|0) - 1), fy = y - j;
+          if (inB(fx, fy) && type[idx(fx, fy)] === EMPTY) {
+            const i = idx(fx, fy);
+            set(i, FIRE); life[i] = 4 + (Math.random()*8|0);
+          }
+        }
+      }
+      if (dead) meteors.splice(k, 1);
+    }
+  }
+
+  // ---------------- physics ----------------
+  function ignite(i) { set(i, FIRE); stamp[i] = frame; }
+
+  function tryLiquidFall(i, x, y, t) {
+    if (y + 1 >= H) return false;
+    const b = idx(x, y + 1);
+    const bt = type[b];
+    if (bt === EMPTY || isGas(bt)) { swap(i, b); return true; }
+    if (isLiquid(bt) && DENS[bt] < DENS[t]) { swap(i, b); return true; }
+    return false;
+  }
+
+  function step() {
+    frame++;
+    processBlasts();
+    stepMeteors();
+    const ltr = frame & 1;
+
+    for (let y = H - 1; y >= 0; y--) {
+      for (let k = 0; k < W; k++) {
+        const x = ltr ? k : W - 1 - k;
+        const i = idx(x, y);
+        const t = type[i];
+        if (t === EMPTY || t === STONE || t === GLASS || t === WOOD || t === TNT) continue;
+        if (stamp[i] === frame) continue;
+
+        if (t === SAND || t === GUNP) {
+          if (y + 1 < H) {
+            const b = idx(x, y + 1);
+            const bt = type[b];
+            if (bt === EMPTY || isLiquid(bt) || isGas(bt)) { swap(i, b); continue; }
+          }
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          for (const dx of [dir, -dir]) {
+            const nx = x + dx;
+            if (nx >= 0 && nx < W && y + 1 < H) {
+              const d = idx(nx, y + 1);
+              const dt = type[d];
+              if (dt === EMPTY || isLiquid(dt)) { swap(i, d); break; }
+            }
+          }
+        }
+
+        else if (isLiquid(t)) {
+          if (t === ACID) acidReact(i, x, y);
+          if (t === LAVA) lavaReact(i, x, y);
+          if (type[i] !== t) continue;
+          if (t === LAVA && Math.random() < 0.55) continue; // sluggish
+
+          if (tryLiquidFall(i, x, y, t)) continue;
+          const dir = Math.random() < 0.5 ? -1 : 1;
+          let moved = false;
+          for (const dx of [dir, -dir]) {
+            const nx = x + dx;
+            if (nx >= 0 && nx < W && y + 1 < H) {
+              const d = idx(nx, y + 1);
+              if (type[d] === EMPTY) { swap(i, d); moved = true; break; }
+            }
+          }
+          if (moved) continue;
+          const span = t === LAVA ? 1 : 4;
+          for (let s = 0; s < span; s++) {
+            const nx = x + dir * (s + 1);
+            if (nx < 0 || nx >= W) break;
+            const d = idx(nx, y);
+            if (type[d] === EMPTY) { swap(i, d); break; }
+            if (type[d] !== t) break;
+          }
+        }
+
+        else if (t === FIRE) {
+          let gone = false;
+          for (let dy = -1; dy <= 1 && !gone; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const nx = x + dx, ny = y + dy;
+              if (!inB(nx, ny)) continue;
+              const n = idx(nx, ny);
+              const nt = type[n];
+              if (nt === WATER) {
+                set(i, STEAM); stamp[i] = frame;
+                if (Math.random() < 0.4) { set(n, STEAM); stamp[n] = frame; }
+                gone = true; break;
+              }
+              if (nt === ICE && Math.random() < 0.25) { set(n, WATER); stamp[n] = frame; }
+              const fl = FLAM[nt];
+              if (fl && Math.random() < fl) ignite(n);
+              if (nt === GUNP) { type[n] = EMPTY; queueBlast(nx, ny, 6, 1 + (Math.random()*3|0)); }
+              if (nt === TNT)  { type[n] = EMPTY; queueBlast(nx, ny, 15, 2 + (Math.random()*6|0)); }
+            }
+          }
+          if (gone) continue;
+          if (--life[i] === 0) { set(i, Math.random() < 0.5 ? SMOKE : EMPTY); stamp[i] = frame; continue; }
+          if (Math.random() < 0.55 && y > 0) {
+            const nx = x + ((Math.random()*3|0) - 1);
+            if (nx >= 0 && nx < W) {
+              const u = idx(nx, y - 1);
+              if (type[u] === EMPTY) swap(i, u);
+            }
+          }
+          vari[i] = (Math.random() * 24) | 0;
+        }
+
+        else if (t === SMOKE || t === STEAM) {
+          if (--life[i] === 0) {
+            if (t === STEAM && Math.random() < 0.25) set(i, WATER);
+            else type[i] = EMPTY;
+            continue;
+          }
+          if (t === STEAM && y === 0 && Math.random() < 0.02) { set(i, WATER); continue; }
+          if (Math.random() < 0.7) {
+            const nx = x + ((Math.random()*3|0) - 1);
+            const ny = Math.random() < 0.8 ? y - 1 : y;
+            if (inB(nx, ny)) {
+              const u = idx(nx, ny);
+              if (type[u] === EMPTY) swap(i, u);
+              else if (isLiquid(type[u]) && ny === y - 1) swap(i, u);
+            }
+          }
+        }
+
+        else if (t === PLANT) {
+          if (Math.random() < 0.06) {
+            const nx = x + (Math.random()*3|0) - 1, ny = y + (Math.random()*3|0) - 1;
+            if (inB(nx, ny)) {
+              const n = idx(nx, ny);
+              if (type[n] === WATER) { set(n, PLANT); stamp[n] = frame; }
+            }
+          }
+        }
+
+        else if (t === ICE) {
+          if (Math.random() < 0.004) {
+            const nx = x + (Math.random()*3|0) - 1, ny = y + (Math.random()*3|0) - 1;
+            if (inB(nx, ny)) {
+              const n = idx(nx, ny);
+              if (type[n] === WATER) { set(n, ICE); stamp[n] = frame; }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  function lavaReact(i, x, y) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx, ny = y + dy;
+        if (!inB(nx, ny)) continue;
+        const n = idx(nx, ny);
+        const nt = type[n];
+        if (nt === WATER) {
+          set(i, STONE); stamp[i] = frame;
+          set(n, STEAM); stamp[n] = frame;
+          return;
+        }
+        if (nt === ICE)  { set(n, WATER); stamp[n] = frame; }
+        if (nt === SAND && Math.random() < 0.02) { set(n, GLASS); stamp[n] = frame; }
+        const fl = FLAM[nt];
+        if (fl && Math.random() < fl * 1.5) ignite(n);
+        if (nt === GUNP) { type[n] = EMPTY; queueBlast(nx, ny, 6, 1 + (Math.random()*3|0)); }
+        if (nt === TNT)  { type[n] = EMPTY; queueBlast(nx, ny, 15, 2 + (Math.random()*6|0)); }
+      }
+    }
+    if (y > 0 && Math.random() < 0.02) {
+      const u = idx(x, y - 1);
+      if (type[u] === EMPTY) { set(u, FIRE); life[u] = 6 + (Math.random()*8|0); stamp[u] = frame; }
+    }
+  }
+
+  function acidReact(i, x, y) {
+    for (const [dx, dy] of [[0,1],[-1,0],[1,0],[0,-1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (!inB(nx, ny)) continue;
+      const n = idx(nx, ny);
+      const nt = type[n];
+      if (nt === EMPTY || nt === ACID || nt === GLASS || nt === FIRE || isGas(nt)) continue;
+      const chance = nt === STONE ? 0.02 : 0.12;
+      if (Math.random() < chance) {
+        type[n] = EMPTY; stamp[n] = frame;
+        if (Math.random() < 0.25) { set(n, SMOKE); life[n] = 20; }
+        if (Math.random() < 0.4) { type[i] = EMPTY; return; }
+      }
+    }
+  }
+
+  // ---------------- render ----------------
+  const FIRE_RAMP = [[120,45,25],[165,70,32],[199,95,51],[224,134,64],[233,173,92]];
+  const LAVA_RAMP = [[142,52,28],[166,66,34],[178,74,38],[196,96,44]];
+  const statsEl = document.getElementById('stats');
+  let fps = 0, fpsAcc = 0, fpsCount = 0, lastT = performance.now();
+
+  function render() {
+    const d = img.data;
+    let count = 0;
+    for (let i = 0, p = 0; i < type.length; i++, p += 4) {
+      const t = type[i];
+      if (t === EMPTY) { d[p] = 28; d[p+1] = 24; d[p+2] = 18; continue; }
+      count++;
+      let r, g, b;
+      if (t === FIRE) {
+        const c = FIRE_RAMP[vari[i] % FIRE_RAMP.length];
+        r = c[0]; g = c[1]; b = c[2];
+      } else if (t === LAVA) {
+        const c = LAVA_RAMP[(vari[i] + (frame >> 3)) % LAVA_RAMP.length];
+        r = c[0]; g = c[1]; b = c[2];
+      } else {
+        const base = DEF[t].base;
+        const v = vari[i] - 12;
+        r = base[0] + v; g = base[1] + v; b = base[2] + v;
+        if (t === SMOKE || t === STEAM) {
+          const fade = Math.min(1, life[i] / 50);
+          r = 28 + (r - 28) * fade; g = 24 + (g - 24) * fade; b = 18 + (b - 18) * fade;
+        }
+      }
+      d[p] = r; d[p+1] = g; d[p+2] = b;
+    }
+    ctx.putImageData(img, 0, 0);
+
+    ctx.fillStyle = 'rgb(233,173,92)';
+    for (const m of meteors) ctx.fillRect((m.x|0) - 1, (m.y|0) - 1, 3, 3);
+
+    if (shakeMag > 0.3 && !reducedMotion) {
+      frameEl.style.transform = `translate(${(Math.random()-0.5)*shakeMag}px, ${(Math.random()-0.5)*shakeMag}px)`;
+      shakeMag *= 0.82;
+    } else {
+      frameEl.style.transform = '';
+      shakeMag = 0;
+    }
+
+    statsEl.textContent = `${count} cells · ${fps} fps${paused ? ' · paused' : ''}`;
+  }
+
+  // ---------------- input ----------------
+  let current = SAND;
+  let brush = 5;
+  let painting = false;
+  let px = -1, py = -1;
+
+  function paint(cx, cy) {
+    if (current === T_BOMB || current === T_METEOR) return;
+    const t = current === T_ERASE ? EMPTY : current;
+    const r = brush;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx*dx + dy*dy > r*r) continue;
+        const x = cx + dx, y = cy + dy;
+        if (!inB(x, y)) continue;
+        const i = idx(x, y);
+        if (t === EMPTY) { type[i] = EMPTY; life[i] = 0; continue; }
+        const solid = SOLID_PAINT.has(t);
+        if (type[i] === EMPTY && (solid || Math.random() < 0.5)) set(i, t);
+        else if (t === FIRE && (type[i] === WOOD || type[i] === PLANT || type[i] === OIL)) set(i, t);
+      }
+    }
+  }
+  function line(x0, y0, x1, y1) {
+    const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    while (true) {
+      paint(x0, y0);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2*err;
+      if (e2 > -dy) { err -= dy; x0 += sx; }
+      if (e2 <  dx) { err += dx; y0 += sy; }
+    }
+  }
+  function toCell(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return [
+      Math.floor((clientX - rect.left) / rect.width * W),
+      Math.floor((clientY - rect.top) / rect.height * H)
+    ];
+  }
+  function down(clientX, clientY) {
+    const [x, y] = toCell(clientX, clientY);
+    if (current === T_BOMB)   { doBlast(x, y, 11); return; }
+    if (current === T_METEOR) { spawnMeteor(x, y); return; }
+    painting = true; px = x; py = y; paint(x, y);
+  }
+  function drag(clientX, clientY) {
+    if (!painting) return;
+    const [x, y] = toCell(clientX, clientY);
+    line(px, py, x, y);
+    px = x; py = y;
+  }
+
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; down(t.clientX, t.clientY); }, { passive: false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.changedTouches[0]; drag(t.clientX, t.clientY); }, { passive: false });
+  window.addEventListener('touchend',   () => { painting = false; });
+  window.addEventListener('touchcancel',() => { painting = false; });
+  // mouse still works for desktop visitors, but touch is the primary path
+  canvas.addEventListener('mousedown', e => { e.preventDefault(); down(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e => drag(e.clientX, e.clientY));
+  window.addEventListener('mouseup',   () => { painting = false; });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ---------------- ui ----------------
+  const strip = document.getElementById('strip');
+  const btns = {};
+  GROUPS.forEach((g, gi) => {
+    if (gi > 0) {
+      const div = document.createElement('div');
+      div.className = 'divider';
+      strip.appendChild(div);
+    }
+    g.items.forEach(t => {
+      const b = document.createElement('button');
+      b.className = 'el' + (t === current ? ' on' : '') + (g.danger ? ' danger' : '');
+      const c = DEF[t].base;
+      b.innerHTML = `<span class="chip" style="background:rgb(${c[0]},${c[1]},${c[2]})"></span><span>${DEF[t].name}</span>`;
+      b.addEventListener('click', () => select(t));
+      strip.appendChild(b);
+      btns[t] = b;
+    });
+  });
+  function select(t) {
+    btns[current].classList.remove('on');
+    current = t;
+    btns[current].classList.add('on');
+    btns[t].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  // scroll affordance: edge fades + tappable arrows while content is hidden off-screen
+  const arrL = document.getElementById('arrL');
+  const arrR = document.getElementById('arrR');
+  function updateFades() {
+    const scrollable = strip.scrollWidth > strip.clientWidth + 2;
+    const hidL = scrollable && strip.scrollLeft > 4;
+    const hidR = scrollable && strip.scrollLeft < strip.scrollWidth - strip.clientWidth - 4;
+    strip.classList.toggle('fade-l', hidL);
+    strip.classList.toggle('fade-r', hidR);
+    arrL.classList.toggle('show', hidL);
+    arrR.classList.toggle('show', hidR);
+  }
+  arrL.addEventListener('click', () => strip.scrollBy({ left: -strip.clientWidth * 0.7, behavior: 'smooth' }));
+  arrR.addEventListener('click', () => strip.scrollBy({ left:  strip.clientWidth * 0.7, behavior: 'smooth' }));
+  strip.addEventListener('scroll', updateFades, { passive: true });
+  window.addEventListener('resize', updateFades);
+  updateFades();
+  // desktop mice: vertical wheel scrolls the strip horizontally
+  strip.addEventListener('wheel', e => {
+    if (strip.scrollWidth > strip.clientWidth) {
+      e.preventDefault();
+      strip.scrollLeft += e.deltaY + e.deltaX;
+    }
+  }, { passive: false });
+
+  const brushIn = document.getElementById('brush');
+  brushIn.addEventListener('input', () => { brush = +brushIn.value; });
+
+  let paused = false;
+  const pauseBtn = document.getElementById('pause');
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  });
+  document.getElementById('clear').addEventListener('click', () => {
+    type.fill(EMPTY); life.fill(0);
+    meteors.length = 0; blasts.length = 0;
+  });
+
+  let snap = null;
+  const restoreBtn = document.getElementById('restore');
+  document.getElementById('save').addEventListener('click', () => {
+    snap = { type: type.slice(), life: life.slice(), vari: vari.slice(), w: W, h: H };
+    restoreBtn.disabled = false;
+  });
+  restoreBtn.addEventListener('click', () => {
+    if (!snap || snap.w !== W || snap.h !== H) return;
+    type.set(snap.type); life.set(snap.life); vari.set(snap.vari);
+    meteors.length = 0; blasts.length = 0; shakeMag = 0;
+  });
+
+  // ---------------- sizing ----------------
+  sizeGrid(false);
+  let resizeT = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => {
+      sizeGrid(true);
+      if (snap && (snap.w !== W || snap.h !== H)) { snap = null; restoreBtn.disabled = true; }
+    }, 200);
+  });
+
+  // ---------------- loop ----------------
+  function loop(now) {
+    if (!paused) step();
+    render();
+    fpsAcc += now - lastT; lastT = now; fpsCount++;
+    if (fpsAcc >= 500) { fps = Math.round(1000 / (fpsAcc / fpsCount)); fpsAcc = 0; fpsCount = 0; }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---------------- starter scene ----------------
+  (function seed() {
+    const floorY = H - 5;
+    for (let x = 2; x < W - 2; x++) set(idx(x, floorY), STONE);
+    const hx = Math.max(3, (W * 0.18) | 0), hw = Math.min(20, (W * 0.28) | 0), hh = 13;
+    for (let y = floorY - hh; y < floorY; y++) {
+      set(idx(hx, y), WOOD); set(idx(hx + hw, y), WOOD);
+    }
+    for (let x = hx; x <= hx + hw; x++) set(idx(x, floorY - hh), WOOD);
+    const pw = Math.min(16, (W * 0.22) | 0);
+    const px0 = Math.min(W - pw - 3, (W * 0.6) | 0);
+    for (let y = floorY - 4; y < floorY; y++)
+      for (let x = px0; x < px0 + pw; x++) set(idx(x, y), WATER);
+    for (let y = floorY - 4; y < floorY; y++) { set(idx(px0 - 1, y), STONE); set(idx(px0 + pw, y), STONE); }
+    for (let k = 0; k < 12; k++) {
+      const gx = px0 + pw + 1 + (Math.random()*4|0);
+      if (gx < W - 2) set(idx(gx, floorY - 1 - (Math.random()*3|0)), PLANT);
+    }
+    for (let k = 0; k < 180; k++) {
+      const x = 4 + ((Math.random() * (W - 8)) | 0);
+      const y = (Math.random() * 10) | 0;
+      set(idx(x, y), SAND);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
