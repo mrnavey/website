@@ -108,13 +108,20 @@
             border: 1px solid var(--panel-edge);
             border-radius: 14px;
             cursor: pointer;
+            transition: border-color 0.4s ease, box-shadow 0.6s ease;
+        }
+
+        /* The board itself glows once the grid comes online */
+        canvas.won {
+            border-color: rgba(34, 211, 238, 0.7);
+            box-shadow: 0 0 44px rgba(34, 211, 238, 0.28);
         }
 
         /* Win overlay */
         .win {
             position: absolute;
             inset: 0;
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -122,8 +129,16 @@
             background: rgba(15, 23, 42, 0.82);
             border-radius: 14px;
             text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.06);
+            transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
         }
-        .win.show { display: flex; }
+        .win.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
         .win h2 {
             font-family: 'Silkscreen', monospace;
             font-size: clamp(20px, 5vw, 30px);
@@ -146,6 +161,7 @@
         }
         @media (prefers-reduced-motion: reduce) {
             .win h2 { animation: none; }
+            .win, canvas { transition: none; }
         }
     </style>
 </head>
@@ -201,6 +217,9 @@
         let connected = new Set();   // indices currently powered
         let moves = 0;
         let solved = false;
+        let winAnim = null;          // { start, dur, depths, maxDepth, popped, popT }
+        let particles = [];          // spark particles from bulbs during the win surge
+        let flashT = [];             // per-tile time it last became powered (for a brief flash)
 
         const canvas = document.getElementById("board");
         const ctx = canvas.getContext("2d");
@@ -279,6 +298,10 @@
             scramble();
             moves = 0;
             solved = false;
+            winAnim = null;
+            particles = [];
+            flashT = new Array(total).fill(-Infinity);
+            canvas.classList.remove("won");
             moveEl.textContent = "0";
             winOverlay.classList.remove("show");
             computeConnected();
@@ -318,6 +341,152 @@
         function isSolvedState() {
             computeConnected();
             return connected.size === size * size;
+        }
+
+        // Distance of every tile from the core, following the (solved) wiring.
+        // Drives the win surge: the wave lights tiles up in BFS order.
+        function bfsDepths() {
+            const depths = new Array(size * size).fill(-1);
+            depths[source] = 0;
+            const queue = [source];
+            while (queue.length) {
+                const i = queue.shift();
+                const x = i % size, y = Math.floor(i / size);
+                const m = currentMask(tiles[i]);
+                for (const d of DIRS) {
+                    if (!(m & d.bit)) continue;
+                    const nx = x + d.dx, ny = y + d.dy;
+                    if (!inBounds(nx, ny)) continue;
+                    const j = idx(nx, ny);
+                    if (depths[j] !== -1) continue;
+                    if (currentMask(tiles[j]) & d.opp) {
+                        depths[j] = depths[i] + 1;
+                        queue.push(j);
+                    }
+                }
+            }
+            return depths;
+        }
+
+        /* ---------- Sound (WebAudio, no assets) ---------- */
+        let audioCtx = null;
+        function audio() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                if (!audioCtx) audioCtx = new AC();
+                if (audioCtx.state === "suspended") audioCtx.resume();
+                return audioCtx;
+            } catch (e) { return null; }
+        }
+
+        // Soft click on every rotation; pitch rises with how much of the grid is powered
+        function clickSound(poweredFrac) {
+            const ctx = audio(); if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "triangle";
+                osc.frequency.value = 220 + 260 * poweredFrac;
+                gain.gain.setValueAtTime(0.1, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(t); osc.stop(t + 0.08);
+            } catch (e) { /* sound is never worth breaking the game */ }
+        }
+
+        // Rising surge while the wave sweeps the grid, then a bright chime
+        function winSound(surgeDur) {
+            const ctx = audio(); if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const filter = ctx.createBiquadFilter();
+                const gain = ctx.createGain();
+                osc.type = "sawtooth";
+                osc.frequency.setValueAtTime(70, t);
+                osc.frequency.exponentialRampToValueAtTime(560, t + surgeDur);
+                filter.type = "lowpass";
+                filter.frequency.setValueAtTime(300, t);
+                filter.frequency.exponentialRampToValueAtTime(3600, t + surgeDur);
+                gain.gain.setValueAtTime(0.001, t);
+                gain.gain.exponentialRampToValueAtTime(0.13, t + surgeDur * 0.7);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + surgeDur + 0.12);
+                osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+                osc.start(t); osc.stop(t + surgeDur + 0.15);
+
+                [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+                    const t0 = t + surgeDur + i * 0.06;
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.type = "sine";
+                    o.frequency.value = freq;
+                    g.gain.setValueAtTime(0.15, t0);
+                    g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.0);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(t0); o.stop(t0 + 1.05);
+                });
+            } catch (e) { /* sound is never worth breaking the game */ }
+        }
+
+        /* ---------- Win surge & sparks ---------- */
+        function startWinAnim() {
+            const depths = bfsDepths();
+            let maxDepth = 1;
+            for (const d of depths) if (d > maxDepth) maxDepth = d;
+            winAnim = {
+                start: pulseT,
+                dur: Math.min(1.3, 0.3 + maxDepth * 0.055), // quick sweep, a bit longer on big boards
+                depths,
+                maxDepth,
+                popped: new Array(depths.length).fill(false),
+                popT: new Array(depths.length).fill(0)
+            };
+            return winAnim;
+        }
+
+        function spawnSparks(i, count) {
+            if (particles.length > 350) return;
+            const x = (i % size) * cell + cell / 2;
+            const y = Math.floor(i / size) * cell + cell / 2;
+            for (let k = 0; k < count; k++) {
+                const ang = Math.random() * Math.PI * 2;
+                const sp = (0.6 + Math.random()) * cell * 2.2;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(ang) * sp,
+                    vy: Math.sin(ang) * sp,
+                    life: 0,
+                    max: 0.35 + Math.random() * 0.4,
+                    white: Math.random() < 0.35
+                });
+            }
+        }
+
+        // Extra brightness for a tile: a short flash when it first gets power,
+        // plus the win surge sweeping over it in BFS order.
+        function tileBoost(i) {
+            if (reducedMotion) return 0;
+            let b = Math.exp((flashT[i] - pulseT) * 5);
+            if (winAnim) {
+                const elapsed = pulseT - winAnim.start;
+                const wave = Math.min(1, elapsed / winAnim.dur) * winAnim.maxDepth;
+                const d = winAnim.depths[i];
+                if (d >= 0) {
+                    const dist = d - wave;
+                    b += Math.exp(-dist * dist * 1.6) + (dist < 0 ? 0.18 : 0);
+                }
+            }
+            return Math.min(1, b);
+        }
+
+        // Blend the live cyan toward white as boost approaches 1
+        function surgeColor(boost) {
+            const r = Math.round(34 + 221 * boost);
+            const g = Math.round(211 + 44 * boost);
+            const b = Math.round(238 + 17 * boost);
+            return `rgb(${r}, ${g}, ${b})`;
         }
 
         /* ---------- Rendering ---------- */
@@ -365,12 +534,15 @@
                 ctx.translate(x, y);
                 ctx.rotate(t.displayRot * Math.PI / 2);
 
+                const boost = tileBoost(i);
+                const liveColor = boost > 0.01 ? surgeColor(boost) : COLOR.wireLive;
+
                 ctx.lineCap = "round";
-                ctx.lineWidth = wireW;
+                ctx.lineWidth = wireW * (1 + 0.3 * boost);
                 if (live) {
-                    ctx.strokeStyle = COLOR.wireLive;
+                    ctx.strokeStyle = liveColor;
                     ctx.shadowColor = COLOR.wireLive;
-                    ctx.shadowBlur = reducedMotion ? 6 : 10 * glow;
+                    ctx.shadowBlur = (reducedMotion ? 6 : 10 * glow) + 26 * boost;
                 } else {
                     ctx.strokeStyle = COLOR.wireDead;
                     ctx.shadowBlur = 0;
@@ -389,9 +561,9 @@
                 // Tile centerpiece
                 if (i === source) {
                     // The core: glowing heart + ring
-                    ctx.fillStyle = COLOR.wireLive;
+                    ctx.fillStyle = boost > 0.01 ? surgeColor(boost) : COLOR.wireLive;
                     ctx.shadowColor = COLOR.wireLive;
-                    ctx.shadowBlur = reducedMotion ? 8 : 14 * glow;
+                    ctx.shadowBlur = (reducedMotion ? 8 : 14 * glow) + 30 * boost;
                     ctx.beginPath();
                     ctx.arc(0, 0, cell * 0.2, 0, Math.PI * 2);
                     ctx.fill();
@@ -402,20 +574,24 @@
                     ctx.arc(0, 0, cell * 0.28, 0, Math.PI * 2);
                     ctx.stroke();
                 } else if (t.isLeaf) {
-                    // Endpoint bulb: lights up when powered
-                    ctx.fillStyle = live ? COLOR.wireLive : COLOR.bulbDead;
+                    // Endpoint bulb: lights up when powered, pops when the surge hits it
+                    let r = cell * 0.17;
+                    if (winAnim && winAnim.popped[i]) {
+                        r *= 1 + 0.5 * Math.exp((winAnim.popT[i] - pulseT) * 6);
+                    }
+                    ctx.fillStyle = live ? liveColor : COLOR.bulbDead;
                     if (live) {
                         ctx.shadowColor = COLOR.wireLive;
-                        ctx.shadowBlur = reducedMotion ? 8 : 14 * glow;
+                        ctx.shadowBlur = (reducedMotion ? 8 : 14 * glow) + 26 * boost;
                     }
                     ctx.beginPath();
-                    ctx.arc(0, 0, cell * 0.17, 0, Math.PI * 2);
+                    ctx.arc(0, 0, r, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.shadowBlur = 0;
                     ctx.strokeStyle = live ? COLOR.wireLive : COLOR.wireDead;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.arc(0, 0, cell * 0.17, 0, Math.PI * 2);
+                    ctx.arc(0, 0, r, 0, Math.PI * 2);
                     ctx.stroke();
                 } else {
                     // Small joint dot
@@ -427,6 +603,20 @@
 
                 ctx.restore();
             }
+
+            // Sparks thrown off by bulbs as the surge passes
+            for (const p of particles) {
+                const a = Math.max(0, 1 - p.life / p.max);
+                ctx.fillStyle = p.white
+                    ? `rgba(255, 255, 255, ${a})`
+                    : `rgba(34, 211, 238, ${a})`;
+                ctx.shadowColor = COLOR.wireLive;
+                ctx.shadowBlur = 8 * a;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 1 + 2.2 * a, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
         }
 
         function tick() {
@@ -445,6 +635,33 @@
                         else animating = true;
                     }
                 }
+            }
+
+            // Advance the win surge: pop bulbs and throw sparks as the wave reaches them
+            if (winAnim) {
+                const elapsed = pulseT - winAnim.start;
+                const wave = Math.min(1, elapsed / winAnim.dur) * winAnim.maxDepth;
+                for (let i = 0; i < tiles.length; i++) {
+                    const d = winAnim.depths[i];
+                    if (d >= 0 && d <= wave && !winAnim.popped[i]) {
+                        winAnim.popped[i] = true;
+                        winAnim.popT[i] = pulseT;
+                        if (i === source) spawnSparks(i, 14);
+                        else if (tiles[i].isLeaf) spawnSparks(i, 7);
+                    }
+                }
+            }
+
+            if (particles.length) {
+                const dt = 1 / 60;
+                particles = particles.filter(p => {
+                    p.life += dt;
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    p.vx *= 0.94;
+                    p.vy *= 0.94;
+                    return p.life < p.max;
+                });
             }
 
             draw();
@@ -466,12 +683,29 @@
             moves++;
             moveEl.textContent = moves;
 
+            const wasConnected = connected;
             computeConnected();
+            // Tiles that just received power flash briefly
+            for (const i of connected) {
+                if (!wasConnected.has(i)) flashT[i] = pulseT;
+            }
+            clickSound(connected.size / (size * size));
+
             if (connected.size === size * size) {
                 solved = true;
                 winStats.textContent = `Solved in ${moves} move${moves === 1 ? "" : "s"} on ${size}\u00d7${size}.`;
-                // Small delay so the final rotation is visible before the overlay
-                setTimeout(() => winOverlay.classList.add("show"), reducedMotion ? 0 : 450);
+                canvas.classList.add("won");
+                if (reducedMotion) {
+                    winSound(0.4);
+                    winOverlay.classList.add("show");
+                } else {
+                    // Let the final rotation land, then surge power through the grid
+                    setTimeout(() => {
+                        startWinAnim();
+                        winSound(winAnim.dur);
+                        setTimeout(() => winOverlay.classList.add("show"), winAnim.dur * 1000 + 500);
+                    }, 260);
+                }
             }
         });
 
