@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loose Wires</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-edge: #334155;
+            --ink: #e2e8f0;
+            --ink-dim: #94a3b8;
+            --live: #22d3ee; /* cyan — powered wires */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 16px 40px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        a.back {
+            align-self: flex-start;
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            text-decoration: none;
+        }
+        a.back:hover { color: var(--ink); }
+
+        h1 {
+            font-family: 'Silkscreen', monospace;
+            font-weight: 700;
+            font-size: clamp(22px, 5vw, 34px);
+            margin: 14px 0 4px;
+            color: var(--live);
+            text-shadow: 0 0 18px rgba(34, 211, 238, 0.35);
+        }
+
+        .hint {
+            font-size: 14px;
+            color: var(--ink-dim);
+            margin: 0 0 18px;
+            text-align: center;
+        }
+
+        .hud {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .hud .moves {
+            font-family: 'Silkscreen', monospace;
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            color: var(--ink-dim);
+            min-width: 110px;
+            text-align: center;
+        }
+        .hud .moves b { color: var(--ink); }
+
+        button {
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        button:hover { color: var(--ink); border-color: var(--ink-dim); }
+        button:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+        button.active {
+            color: var(--live);
+            border-color: var(--live);
+        }
+
+        .board-wrap { position: relative; }
+
+        canvas {
+            display: block;
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 14px;
+            cursor: pointer;
+        }
+
+        /* Win overlay */
+        .win {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            background: rgba(15, 23, 42, 0.82);
+            border-radius: 14px;
+            text-align: center;
+        }
+        .win.show { display: flex; }
+        .win h2 {
+            font-family: 'Silkscreen', monospace;
+            font-size: clamp(20px, 5vw, 30px);
+            color: var(--live);
+            margin: 0;
+            text-shadow: 0 0 24px rgba(34, 211, 238, 0.6);
+            animation: winpulse 1.4s ease-in-out infinite;
+        }
+        .win p {
+            font-size: 15px;
+            color: var(--ink-dim);
+            margin: 0;
+        }
+        .win button {
+            color: var(--live);
+            border-color: var(--live);
+        }
+        @keyframes winpulse {
+            50% { text-shadow: 0 0 6px rgba(34, 211, 238, 0.25); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .win h2 { animation: none; }
+        }
+    </style>
+</head>
+<body>
+    <a class="back" href="/index.html">&larr; The Arcade</a>
+    <h1>Loose Wires</h1>
+    <p class="hint">Tap a tile to rotate it. Reconnect every wire to the core.</p>
+
+    <div class="hud">
+        <button data-size="5" class="sizeBtn">5&times;5</button>
+        <button data-size="7" class="sizeBtn active">7&times;7</button>
+        <button data-size="9" class="sizeBtn">9&times;9</button>
+        <span class="moves">Moves: <b id="moveCount">0</b></span>
+        <button id="newBtn">New puzzle</button>
+    </div>
+
+    <div class="board-wrap">
+        <canvas id="board"></canvas>
+        <div class="win" id="winOverlay">
+            <h2>GRID ONLINE</h2>
+            <p id="winStats"></p>
+            <button id="againBtn">Next puzzle</button>
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        /* ---------- Constants ---------- */
+        // Direction bitmask: N=1, E=2, S=4, W=8
+        const N = 1, E = 2, S = 4, W = 8;
+        const DIRS = [
+            { bit: N, dx: 0, dy: -1, opp: S },
+            { bit: E, dx: 1, dy: 0, opp: W },
+            { bit: S, dx: 0, dy: 1, opp: N },
+            { bit: W, dx: -1, dy: 0, opp: E }
+        ];
+
+        const COLOR = {
+            wireDead: "#475569",
+            wireLive: "#22d3ee",
+            coreRing: "#e2e8f0",
+            bulbDead: "#334155",
+            gridLine: "rgba(51, 65, 85, 0.35)"
+        };
+
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---------- State ---------- */
+        let size = 7;                // board is size x size
+        let tiles = [];              // { mask, rot, displayRot, isLeaf }
+        let source = 0;              // index of the core tile
+        let connected = new Set();   // indices currently powered
+        let moves = 0;
+        let solved = false;
+
+        const canvas = document.getElementById("board");
+        const ctx = canvas.getContext("2d");
+        const moveEl = document.getElementById("moveCount");
+        const winOverlay = document.getElementById("winOverlay");
+        const winStats = document.getElementById("winStats");
+
+        let cssSize = 0;   // canvas CSS pixels (square)
+        let cell = 0;      // tile size in CSS pixels
+
+        /* ---------- Helpers ---------- */
+        const idx = (x, y) => y * size + x;
+        const inBounds = (x, y) => x >= 0 && x < size && y >= 0 && y < size;
+
+        // Rotate a connection mask 90° clockwise, `steps` times
+        function rotateMask(mask, steps) {
+            for (let i = 0; i < ((steps % 4) + 4) % 4; i++) {
+                mask = ((mask << 1) & 15) | (mask >> 3);
+            }
+            return mask;
+        }
+
+        function currentMask(t) {
+            return rotateMask(t.mask, t.rot);
+        }
+
+        function popcount(m) {
+            let c = 0;
+            while (m) { c += m & 1; m >>= 1; }
+            return c;
+        }
+
+        /* ---------- Puzzle generation ----------
+           1. Build a random spanning tree over the grid (iterative DFS).
+              Every tile is reachable, no loops → solvable by construction.
+           2. Record each tile's connections as a bitmask.
+           3. Scramble every tile's rotation.
+        ------------------------------------------ */
+        function generate() {
+            const total = size * size;
+            const masks = new Array(total).fill(0);
+            const visited = new Array(total).fill(false);
+
+            const startX = Math.floor(Math.random() * size);
+            const startY = Math.floor(Math.random() * size);
+            const stack = [[startX, startY]];
+            visited[idx(startX, startY)] = true;
+
+            while (stack.length) {
+                const [x, y] = stack[stack.length - 1];
+                const options = DIRS.filter(d =>
+                    inBounds(x + d.dx, y + d.dy) && !visited[idx(x + d.dx, y + d.dy)]
+                );
+                if (!options.length) {
+                    stack.pop();
+                    continue;
+                }
+                const d = options[Math.floor(Math.random() * options.length)];
+                const nx = x + d.dx, ny = y + d.dy;
+                masks[idx(x, y)] |= d.bit;
+                masks[idx(nx, ny)] |= d.opp;
+                visited[idx(nx, ny)] = true;
+                stack.push([nx, ny]);
+            }
+
+            tiles = masks.map(m => ({
+                mask: m,
+                rot: 0,
+                displayRot: 0,
+                isLeaf: popcount(m) === 1
+            }));
+
+            // Core sits at the center of the board
+            source = idx(Math.floor(size / 2), Math.floor(size / 2));
+
+            scramble();
+            moves = 0;
+            solved = false;
+            moveEl.textContent = "0";
+            winOverlay.classList.remove("show");
+            computeConnected();
+        }
+
+        function scramble() {
+            do {
+                tiles.forEach(t => {
+                    t.rot = Math.floor(Math.random() * 4);
+                    t.displayRot = t.rot;
+                });
+            } while (isSolvedState()); // never hand out a pre-solved board
+        }
+
+        /* ---------- Connectivity (BFS from the core) ---------- */
+        function computeConnected() {
+            connected = new Set([source]);
+            const queue = [source];
+            while (queue.length) {
+                const i = queue.shift();
+                const x = i % size, y = Math.floor(i / size);
+                const m = currentMask(tiles[i]);
+                for (const d of DIRS) {
+                    if (!(m & d.bit)) continue;
+                    const nx = x + d.dx, ny = y + d.dy;
+                    if (!inBounds(nx, ny)) continue;
+                    const j = idx(nx, ny);
+                    if (connected.has(j)) continue;
+                    if (currentMask(tiles[j]) & d.opp) {
+                        connected.add(j);
+                        queue.push(j);
+                    }
+                }
+            }
+        }
+
+        function isSolvedState() {
+            computeConnected();
+            return connected.size === size * size;
+        }
+
+        /* ---------- Rendering ---------- */
+        let pulseT = 0;
+
+        function resize() {
+            const maxW = Math.min(window.innerWidth - 32, 640);
+            const maxH = window.innerHeight - canvas.getBoundingClientRect().top - 40;
+            cssSize = Math.max(240, Math.min(maxW, maxH));
+            cell = cssSize / size;
+
+            const dpr = window.devicePixelRatio || 1;
+            canvas.style.width = cssSize + "px";
+            canvas.style.height = cssSize + "px";
+            canvas.width = Math.round(cssSize * dpr);
+            canvas.height = Math.round(cssSize * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, cssSize, cssSize);
+
+            // Faint grid lines
+            ctx.strokeStyle = COLOR.gridLine;
+            ctx.lineWidth = 1;
+            for (let i = 1; i < size; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, cssSize);
+                ctx.moveTo(0, i * cell); ctx.lineTo(cssSize, i * cell);
+                ctx.stroke();
+            }
+
+            const wireW = Math.max(4, cell * 0.16);
+            const glow = solved
+                ? 0.75 + 0.25 * Math.sin(pulseT * 3)
+                : 0.55 + 0.2 * Math.sin(pulseT * 2);
+
+            for (let i = 0; i < tiles.length; i++) {
+                const t = tiles[i];
+                const x = (i % size) * cell + cell / 2;
+                const y = Math.floor(i / size) * cell + cell / 2;
+                const live = connected.has(i);
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(t.displayRot * Math.PI / 2);
+
+                ctx.lineCap = "round";
+                ctx.lineWidth = wireW;
+                if (live) {
+                    ctx.strokeStyle = COLOR.wireLive;
+                    ctx.shadowColor = COLOR.wireLive;
+                    ctx.shadowBlur = reducedMotion ? 6 : 10 * glow;
+                } else {
+                    ctx.strokeStyle = COLOR.wireDead;
+                    ctx.shadowBlur = 0;
+                }
+
+                // Draw each wire arm of the (unrotated) base mask;
+                // the ctx.rotate above applies the tile's rotation.
+                const arm = cell / 2;
+                if (t.mask & N) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -arm); ctx.stroke(); }
+                if (t.mask & E) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(arm, 0); ctx.stroke(); }
+                if (t.mask & S) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, arm); ctx.stroke(); }
+                if (t.mask & W) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-arm, 0); ctx.stroke(); }
+
+                ctx.shadowBlur = 0;
+
+                // Tile centerpiece
+                if (i === source) {
+                    // The core: glowing heart + ring
+                    ctx.fillStyle = COLOR.wireLive;
+                    ctx.shadowColor = COLOR.wireLive;
+                    ctx.shadowBlur = reducedMotion ? 8 : 14 * glow;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, cell * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.strokeStyle = COLOR.coreRing;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, cell * 0.28, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (t.isLeaf) {
+                    // Endpoint bulb: lights up when powered
+                    ctx.fillStyle = live ? COLOR.wireLive : COLOR.bulbDead;
+                    if (live) {
+                        ctx.shadowColor = COLOR.wireLive;
+                        ctx.shadowBlur = reducedMotion ? 8 : 14 * glow;
+                    }
+                    ctx.beginPath();
+                    ctx.arc(0, 0, cell * 0.17, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.strokeStyle = live ? COLOR.wireLive : COLOR.wireDead;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, cell * 0.17, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else {
+                    // Small joint dot
+                    ctx.fillStyle = live ? COLOR.wireLive : COLOR.wireDead;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, wireW * 0.62, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function tick() {
+            pulseT += 1 / 60;
+
+            // Animate tile rotations toward their logical state
+            let animating = false;
+            for (const t of tiles) {
+                if (t.displayRot !== t.rot) {
+                    if (reducedMotion) {
+                        t.displayRot = t.rot;
+                    } else {
+                        const diff = t.rot - t.displayRot;
+                        t.displayRot += diff * 0.35;
+                        if (Math.abs(t.rot - t.displayRot) < 0.01) t.displayRot = t.rot;
+                        else animating = true;
+                    }
+                }
+            }
+
+            draw();
+            requestAnimationFrame(tick);
+        }
+
+        /* ---------- Input ---------- */
+        canvas.addEventListener("pointerdown", ev => {
+            if (solved) return;
+            const rect = canvas.getBoundingClientRect();
+            const px = ev.clientX - rect.left;
+            const py = ev.clientY - rect.top;
+            const tx = Math.floor(px / cell);
+            const ty = Math.floor(py / cell);
+            if (!inBounds(tx, ty)) return;
+
+            const t = tiles[idx(tx, ty)];
+            t.rot += 1;             // keep counting up so animation always spins CW
+            moves++;
+            moveEl.textContent = moves;
+
+            computeConnected();
+            if (connected.size === size * size) {
+                solved = true;
+                winStats.textContent = `Solved in ${moves} move${moves === 1 ? "" : "s"} on ${size}\u00d7${size}.`;
+                // Small delay so the final rotation is visible before the overlay
+                setTimeout(() => winOverlay.classList.add("show"), reducedMotion ? 0 : 450);
+            }
+        });
+
+        /* ---------- Controls ---------- */
+        document.getElementById("newBtn").addEventListener("click", generate);
+        document.getElementById("againBtn").addEventListener("click", generate);
+
+        document.querySelectorAll(".sizeBtn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".sizeBtn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                size = parseInt(btn.dataset.size, 10);
+                resize();
+                generate();
+            });
+        });
+
+        window.addEventListener("resize", () => { resize(); });
+
+        /* ---------- Boot ---------- */
+        resize();
+        generate();
+        tick();
+    </script>
+</body>
+</html>
