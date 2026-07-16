@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Flow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-edge: #334155;
+            --ink: #e2e8f0;
+            --ink-dim: #94a3b8;
+            --glow: #f472b6; /* pink — the game's signature neon */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 16px 40px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        a.back {
+            align-self: flex-start;
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            text-decoration: none;
+        }
+        a.back:hover { color: var(--ink); }
+
+        h1 {
+            font-family: 'Silkscreen', monospace;
+            font-weight: 700;
+            font-size: clamp(22px, 5vw, 34px);
+            margin: 14px 0 4px;
+            color: var(--glow);
+            text-shadow: 0 0 18px rgba(244, 114, 182, 0.35);
+        }
+
+        .hint {
+            font-size: 14px;
+            color: var(--ink-dim);
+            margin: 0 0 18px;
+            text-align: center;
+        }
+
+        .hud {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .hud .stat {
+            font-family: 'Silkscreen', monospace;
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            color: var(--ink-dim);
+            min-width: 92px;
+            text-align: center;
+        }
+        .hud .stat b { color: var(--ink); }
+
+        button {
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        button:hover { color: var(--ink); border-color: var(--ink-dim); }
+        button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+        button.active {
+            color: var(--glow);
+            border-color: var(--glow);
+        }
+
+        .board-wrap { position: relative; }
+
+        /* Amber nudge: all dots linked but the grid isn't full yet */
+        .notice {
+            position: absolute;
+            left: 50%;
+            bottom: 14px;
+            transform: translateX(-50%) translateY(8px);
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-align: center;
+            color: #fbbf24;
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(251, 191, 36, 0.55);
+            border-radius: 8px;
+            padding: 8px 14px;
+            max-width: 90%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .notice.show {
+            opacity: 1;
+            transform: translateX(-50%);
+        }
+
+        canvas {
+            display: block;
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 14px;
+            cursor: pointer;
+            touch-action: none;
+            transition: border-color 0.4s ease, box-shadow 0.6s ease;
+        }
+
+        /* The board glows once every flow is linked */
+        canvas.won {
+            border-color: rgba(244, 114, 182, 0.7);
+            box-shadow: 0 0 44px rgba(244, 114, 182, 0.28);
+        }
+
+        /* Win overlay */
+        .win {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            background: rgba(15, 23, 42, 0.82);
+            border-radius: 14px;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.06);
+            transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+        }
+        .win.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        .win h2 {
+            font-family: 'Silkscreen', monospace;
+            font-size: clamp(20px, 5vw, 30px);
+            color: var(--glow);
+            margin: 0;
+            text-shadow: 0 0 24px rgba(244, 114, 182, 0.6);
+            animation: winpulse 1.4s ease-in-out infinite;
+        }
+        .win p {
+            font-size: 15px;
+            color: var(--ink-dim);
+            margin: 0;
+        }
+        .win button {
+            color: var(--glow);
+            border-color: var(--glow);
+        }
+        @keyframes winpulse {
+            50% { text-shadow: 0 0 6px rgba(244, 114, 182, 0.25); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .win h2 { animation: none; }
+            .win, canvas { transition: none; }
+        }
+    </style>
+</head>
+<body>
+    <a class="back" href="/index.html">&larr; The Arcade</a>
+    <h1>Neon Flow</h1>
+    <p class="hint">Drag between matching dots to link them. Pipes can't cross &mdash; fill every cell to win.</p>
+
+    <div class="hud">
+        <button data-size="5" class="sizeBtn">5&times;5</button>
+        <button data-size="6" class="sizeBtn active">6&times;6</button>
+        <button data-size="7" class="sizeBtn">7&times;7</button>
+        <button data-size="8" class="sizeBtn">8&times;8</button>
+        <button data-size="9" class="sizeBtn">9&times;9</button>
+        <span class="stat">Flows: <b id="flowCount">0/0</b></span>
+        <span class="stat">Pipe: <b id="pipePct">0%</b></span>
+        <span class="stat">Moves: <b id="moveCount">0</b></span>
+        <button id="newBtn">New puzzle</button>
+    </div>
+
+    <div class="board-wrap">
+        <canvas id="board"></canvas>
+        <div class="notice" id="notice">All dots linked &mdash; fill every cell to win!</div>
+        <div class="win" id="winOverlay">
+            <h2>FLOW COMPLETE</h2>
+            <p id="winStats"></p>
+            <button id="againBtn">Next puzzle</button>
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        /* ---------- Constants ---------- */
+        const PALETTE = [
+            "#ef4444", // red
+            "#fb923c", // orange
+            "#facc15", // yellow
+            "#4ade80", // green
+            "#22d3ee", // cyan
+            "#60a5fa", // blue
+            "#a78bfa", // purple
+            "#f472b6", // pink
+            "#f1f5f9", // white
+            "#2dd4bf", // teal
+            "#a3e635", // lime
+            "#e879f9", // fuchsia
+            "#94a3b8"  // slate
+        ];
+
+        // Pairs per board size. Bigger boards get MORE, SHORTER flows —
+        // long pipes leave room for shortcut linkings; short ones don't
+        // (validated: tight generation stays fast at these counts).
+        const FLOWS = { 5: 5, 6: 6, 7: 8, 8: 11, 9: 13 };
+
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        /* ---------- State ---------- */
+        let size = 6;            // board is size x size
+        let flows = 0;           // number of color pairs
+        let endpoints = [];      // per color: [cellA, cellB]
+        let endpointOf = [];     // per cell: color index, or -1
+        let paths = [];          // per color: array of cells, always starting at one endpoint
+        let owner = [];          // per cell: color index whose pipe covers it, or -1
+        let solution = [];       // the generator's segments (one full-grid solution)
+        let moves = 0;
+        let solved = false;
+        let allLinked = false;   // every pair connected but the grid isn't full yet
+        let winStart = 0;        // timestamp when the puzzle was solved (for the win sweep)
+        let flashes = [];        // { cell, t } — ring bursts when a pair links up
+
+        // Active drag: { color, pointerId, changed }
+        let drag = null;
+
+        const canvas = document.getElementById("board");
+        const ctx = canvas.getContext("2d");
+        const flowEl = document.getElementById("flowCount");
+        const pipeEl = document.getElementById("pipePct");
+        const moveEl = document.getElementById("moveCount");
+        const winOverlay = document.getElementById("winOverlay");
+        const winStats = document.getElementById("winStats");
+        const noticeEl = document.getElementById("notice");
+
+        let cssSize = 0;   // canvas CSS pixels (square)
+        let cell = 0;      // cell size in CSS pixels
+
+        /* ---------- Helpers ---------- */
+        const cx = c => c % size;
+        const cy = c => Math.floor(c / size);
+        const idx = (x, y) => y * size + x;
+        const inBounds = (x, y) => x >= 0 && x < size && y >= 0 && y < size;
+        const adjacent = (a, b) => Math.abs(cx(a) - cx(b)) + Math.abs(cy(a) - cy(b)) === 1;
+
+        function otherEnd(color, cellId) {
+            const [a, b] = endpoints[color];
+            return cellId === a ? b : a;
+        }
+
+        function isComplete(color) {
+            const p = paths[color];
+            return p.length > 1 && p[p.length - 1] === otherEnd(color, p[0]);
+        }
+
+        function rebuildOwner() {
+            owner.fill(-1);
+            for (let c = 0; c < flows; c++) {
+                for (const cellId of paths[c]) owner[cellId] = c;
+            }
+        }
+
+        function coveredCells() {
+            let n = 0;
+            for (const o of owner) if (o >= 0) n++;
+            return n;
+        }
+
+        /* ---------- Puzzle generation ----------
+           1. Build a random Hamiltonian path over the grid: start from a
+              serpentine path, then shuffle it with "backbite" moves.
+           2. Cut the path into `flows` segments (each at least 3 cells).
+              The segments ARE a solution, so every puzzle is solvable
+              with the whole grid filled.
+           3. Segment endpoints become the colored dots. Candidates are
+              rejected unless they are TIGHT (see below): linking every
+              pair is impossible without filling the whole grid.
+        ------------------------------------------ */
+        function hamiltonianPath() {
+            const total = size * size;
+            const path = new Array(total);
+            let k = 0;
+            for (let y = 0; y < size; y++) {
+                if (y % 2 === 0) for (let x = 0; x < size; x++) path[k++] = idx(x, y);
+                else for (let x = size - 1; x >= 0; x--) path[k++] = idx(x, y);
+            }
+            const pos = new Array(total);
+            for (let i = 0; i < total; i++) pos[path[i]] = i;
+
+            const reverseRange = (lo, hi) => {
+                while (lo < hi) {
+                    const a = path[lo], b = path[hi];
+                    path[lo] = b; path[hi] = a;
+                    pos[b] = lo; pos[a] = hi;
+                    lo++; hi--;
+                }
+            };
+
+            const iters = total * 30;
+            for (let it = 0; it < iters; it++) {
+                const fromHead = Math.random() < 0.5;
+                const end = fromHead ? path[0] : path[total - 1];
+                const x = cx(end), y = cy(end);
+                const options = [];
+                for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                    if (!inBounds(x + dx, y + dy)) continue;
+                    const j = pos[idx(x + dx, y + dy)];
+                    if (fromHead ? j > 1 : j < total - 2) options.push(j);
+                }
+                if (!options.length) continue;
+                const j = options[Math.floor(Math.random() * options.length)];
+                if (fromHead) reverseRange(0, j - 1);
+                else reverseRange(j + 1, total - 1);
+            }
+            return path;
+        }
+
+        function cutIntoSegments(path, count) {
+            const total = path.length;
+            const lengths = new Array(count).fill(3);
+            let rem = total - 3 * count;
+            while (rem-- > 0) lengths[Math.floor(Math.random() * count)]++;
+            const segs = [];
+            let at = 0;
+            for (const len of lengths) {
+                segs.push(path.slice(at, at + len));
+                at += len;
+            }
+            return segs;
+        }
+
+        /* ---------- Tightness ----------
+           A puzzle is "tight" when there is NO way to link every pair
+           while leaving cells empty — filling the whole grid is the
+           only way to connect all the dots.
+
+           1. Every segment is cut CHORDLESS (no two of its cells touch
+              on the grid unless consecutive on the path). A chordless
+              path is the only route between its endpoints through its
+              own cells, so no single color can ever be shortened.
+           2. Colors could still trade territory to open a gap, but any
+              such rearrangement lives entirely inside the combined
+              cells of the colors that deviate. We exhaustively search
+              every adjacent pair and triple of colors for a gap
+              rearrangement, plus randomized whole-board probes, and
+              reject the candidate if any shortcut exists.
+        ------------------------------------------ */
+
+        // s[j] = smallest start index a such that path[a..j] is chordless.
+        function chordlessMinStart(path) {
+            const N = path.length;
+            const pos = new Array(size * size);
+            for (let i = 0; i < N; i++) pos[path[i]] = i;
+            const s = new Array(N);
+            s[0] = 0;
+            for (let j = 1; j < N; j++) {
+                const x = cx(path[j]), y = cy(path[j]);
+                let m = -1;
+                for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                    if (!inBounds(x + dx, y + dy)) continue;
+                    const p = pos[idx(x + dx, y + dy)];
+                    if (p <= j - 2 && p > m) m = p;
+                }
+                s[j] = Math.max(s[j - 1], m + 1);
+            }
+            return s;
+        }
+
+        // Cut the path into `count` chordless segments of >= 3 cells,
+        // sampled among all valid partitions. Returns null if none exist.
+        function cutChordless(path, count) {
+            const N = path.length;
+            const s = chordlessMinStart(path);
+            // f[i][r] = number of ways to split path[i..] into r segments
+            const f = Array.from({ length: N + 1 }, () => new Float64Array(count + 1));
+            f[N][0] = 1;
+            for (let i = N - 1; i >= 0; i--) {
+                for (let r = 1; r <= count; r++) {
+                    let total = 0;
+                    for (let b = i + 2; b < N; b++) {
+                        if (s[b] > i) break; // s is nondecreasing
+                        total += f[b + 1][r - 1];
+                    }
+                    f[i][r] = total;
+                }
+            }
+            if (!f[0][count]) return null;
+            const segs = [];
+            let i = 0;
+            for (let r = count; r >= 1; r--) {
+                let pick = Math.random() * f[i][r];
+                let chosen = -1;
+                for (let b = i + 2; b < N; b++) {
+                    if (s[b] > i) break;
+                    const w = f[b + 1][r - 1];
+                    if (w > 0) {
+                        chosen = b;
+                        pick -= w;
+                        if (pick <= 0) break;
+                    }
+                }
+                if (chosen < 0) return null;
+                segs.push(path.slice(i, chosen + 1));
+                i = chosen + 1;
+            }
+            return segs;
+        }
+
+        // Which colors touch on the board?
+        function colorAdjacency(segs) {
+            const cellColor = new Int8Array(size * size).fill(-1);
+            segs.forEach((seg, ci) => seg.forEach(c => { cellColor[c] = ci; }));
+            const adj = segs.map(() => new Set());
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const a = cellColor[idx(x, y)];
+                    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+                        if (!inBounds(x + dx, y + dy)) continue;
+                        const b = cellColor[idx(x + dx, y + dy)];
+                        if (a !== b) { adj[a].add(b); adj[b].add(a); }
+                    }
+                }
+            }
+            return adj;
+        }
+
+        // Exhaustive search: can the given colors be re-linked inside the
+        // union of their own solution cells so that a cell is left empty?
+        function gapWithin(subsetSegs) {
+            const inRegion = new Uint8Array(size * size);
+            let regionSize = 0;
+            subsetSegs.forEach(seg => seg.forEach(c => { inRegion[c] = 1; regionSize++; }));
+            const isEp = new Uint8Array(size * size);
+            const pairs = subsetSegs.map(seg => [seg[0], seg[seg.length - 1]]);
+            pairs.forEach(([a, b]) => { isEp[a] = 1; isEp[b] = 1; });
+
+            const order = pairs.map((p, i) => i)
+                .sort((a, b) => subsetSegs[a].length - subsetSegs[b].length);
+            const used = new Uint8Array(size * size);
+            let covered = 0;
+            let nodes = 0;
+            const CAP = 120000;
+
+            const nbrs = (c, out) => {
+                const x = cx(c), y = cy(c);
+                out.length = 0;
+                if (x + 1 < size) out.push(c + 1);
+                if (x > 0) out.push(c - 1);
+                if (y + 1 < size) out.push(c + size);
+                if (y > 0) out.push(c - size);
+                return out;
+            };
+            const scratch = [];
+
+            // Every unplaced pair must stay connectable through free cells.
+            function reachable(k) {
+                for (let t = k; t < order.length; t++) {
+                    const [a, b] = pairs[order[t]];
+                    const seen = new Uint8Array(size * size);
+                    const q = [a];
+                    seen[a] = 1;
+                    let ok = false;
+                    while (q.length && !ok) {
+                        const cur = q.pop();
+                        for (const n of nbrs(cur, scratch)) {
+                            if (n === b) { ok = true; break; }
+                            if (!inRegion[n] || used[n] || isEp[n] || seen[n]) continue;
+                            seen[n] = 1;
+                            q.push(n);
+                        }
+                    }
+                    if (!ok) return false;
+                }
+                return true;
+            }
+
+            function dfsPair(k) {
+                if (k === order.length) return covered < regionSize; // a gap!
+                const [a, b] = pairs[order[k]];
+                const dist = c => Math.abs(cx(c) - cx(b)) + Math.abs(cy(c) - cy(b));
+                function extend(cell) {
+                    if (nodes++ > CAP) return true; // too big: stay safe, reject puzzle
+                    if (cell === b) return reachable(k + 1) && dfsPair(k + 1);
+                    const options = nbrs(cell, []).filter(n =>
+                        inRegion[n] && !used[n] && (!isEp[n] || n === b));
+                    options.sort((p, q) => dist(p) - dist(q)); // shortcuts first
+                    for (const n of options) {
+                        used[n] = 1; covered++;
+                        const hit = extend(n);
+                        used[n] = 0; covered--;
+                        if (hit) return true;
+                    }
+                    return false;
+                }
+                used[a] = 1; covered++;
+                const hit = extend(a);
+                used[a] = 0; covered--;
+                return hit;
+            }
+            return dfsPair(0);
+        }
+
+        // Randomized whole-board probe: link every pair greedily via
+        // shortest paths in a random order. Completing with empty cells
+        // left over means a shortcut exists.
+        function greedyGapProbe(segs) {
+            const isEp = new Uint8Array(size * size);
+            segs.forEach(seg => { isEp[seg[0]] = 1; isEp[seg[seg.length - 1]] = 1; });
+            const usedBy = new Int8Array(size * size).fill(-1);
+            const order = segs.map((s, i) => i);
+            for (let i = order.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [order[i], order[j]] = [order[j], order[i]];
+            }
+            let coveredCells = 0;
+            for (const ci of order) {
+                const a = segs[ci][0], b = segs[ci][segs[ci].length - 1];
+                const prev = new Int16Array(size * size).fill(-2);
+                prev[a] = -1;
+                const q = [a];
+                while (q.length) {
+                    const cur = q.shift();
+                    if (cur === b) break;
+                    const x = cx(cur), y = cy(cur);
+                    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+                    for (let d = dirs.length - 1; d > 0; d--) { // random tie-breaking
+                        const r = Math.floor(Math.random() * (d + 1));
+                        [dirs[d], dirs[r]] = [dirs[r], dirs[d]];
+                    }
+                    for (const [dx, dy] of dirs) {
+                        if (!inBounds(x + dx, y + dy)) continue;
+                        const n = idx(x + dx, y + dy);
+                        if (prev[n] !== -2) continue;
+                        if (n !== b && (usedBy[n] >= 0 || isEp[n])) continue;
+                        prev[n] = cur;
+                        q.push(n);
+                    }
+                }
+                if (prev[b] === -2) return false; // blocked: inconclusive, fine
+                let cur = b;
+                while (cur !== -1) { usedBy[cur] = ci; coveredCells++; cur = prev[cur]; }
+            }
+            return coveredCells < size * size; // all linked with a gap
+        }
+
+        // Do these colors' cells form one connected region on the board?
+        function isConnectedSubset(combo, adj) {
+            const inSet = new Set(combo);
+            const seen = new Set([combo[0]]);
+            const stack = [combo[0]];
+            while (stack.length) {
+                const v = stack.pop();
+                for (const w of adj[v]) {
+                    if (inSet.has(w) && !seen.has(w)) { seen.add(w); stack.push(w); }
+                }
+            }
+            return seen.size === combo.length;
+        }
+
+        function isTight(segs) {
+            for (let t = 0; t < 10; t++) if (greedyGapProbe(segs)) return false;
+            const adj = colorAdjacency(segs);
+            const n = segs.length;
+            // Exhaustively test every connected group of 2-4 colors for a
+            // rearrangement that opens a gap. (A deviating group's new
+            // pipes can only use its own cells, so groups are all that
+            // need checking; 4-color groups were the deepest shortcuts
+            // observed in validation.)
+            for (let k = 2; k <= 4 && k <= n; k++) {
+                const combo = new Array(k);
+                let gap = false;
+                const pick = (pos, start) => {
+                    if (gap) return;
+                    if (pos === k) {
+                        if (!isConnectedSubset(combo, adj)) return;
+                        if (gapWithin(combo.map(i => segs[i]))) gap = true;
+                        return;
+                    }
+                    for (let i = start; i < n && !gap; i++) {
+                        combo[pos] = i;
+                        pick(pos + 1, i + 1);
+                    }
+                };
+                pick(0, 0);
+                if (gap) return false;
+            }
+            return true;
+        }
+
+        function generate() {
+            flows = FLOWS[size];
+            let segs = null;
+            const deadline = performance.now() + 4000;
+            while (!segs && performance.now() < deadline) {
+                const path = hamiltonianPath();
+                for (let cut = 0; cut < 6 && !segs; cut++) {
+                    const candidate = cutChordless(path, flows);
+                    if (!candidate) break;          // this path has no chordless partition
+                    if (isTight(candidate)) segs = candidate;
+                }
+            }
+            if (!segs) {
+                // Practically unreachable: fall back to a chordless (still
+                // shortcut-resistant) cut, then to a plain cut.
+                for (let attempt = 0; attempt < 200 && !segs; attempt++) {
+                    segs = cutChordless(hamiltonianPath(), flows);
+                }
+                if (!segs) segs = cutIntoSegments(hamiltonianPath(), flows);
+            }
+
+            const total = size * size;
+            solution = segs;
+            endpoints = segs.map(s => [s[0], s[s.length - 1]]);
+            endpointOf = new Array(total).fill(-1);
+            endpoints.forEach(([a, b], c) => { endpointOf[a] = c; endpointOf[b] = c; });
+
+            paths = endpoints.map(() => []);
+            owner = new Array(total).fill(-1);
+            moves = 0;
+            solved = false;
+            allLinked = false;
+            drag = null;
+            flashes = [];
+            canvas.classList.remove("won");
+            winOverlay.classList.remove("show");
+            noticeEl.classList.remove("show");
+            updateHud();
+        }
+
+        /* ---------- HUD ---------- */
+        function updateHud() {
+            let done = 0;
+            for (let c = 0; c < flows; c++) if (isComplete(c)) done++;
+            const covered = coveredCells();
+            flowEl.textContent = done + "/" + flows;
+            pipeEl.textContent = Math.round(covered / (size * size) * 100) + "%";
+            moveEl.textContent = String(moves);
+
+            // All pairs linked but cells left empty: that is NOT a win —
+            // call it out so the player knows the grid must be filled.
+            const linkedShort = !solved && done === flows && covered < size * size;
+            if (linkedShort && !allLinked) sndNotQuite();
+            allLinked = linkedShort;
+            noticeEl.classList.toggle("show", allLinked);
+        }
+
+        /* ---------- Game rules ----------
+           Flow Free semantics:
+           - Press a dot to start (or restart) that color's pipe from it.
+           - Press mid-pipe to cut the pipe back to that cell and resume.
+           - Dragging over your own pipe rewinds it; dragging over another
+             color's pipe cuts that pipe short (steals the cell).
+           - Pipes may never pass through any dot except their own match.
+        ------------------------------------------ */
+        function tryStep(color, target) {
+            const p = paths[color];
+            const last = p[p.length - 1];
+            if (target === last || !adjacent(last, target)) return false;
+
+            // Backtrack one step (also lets you undo a completed link)
+            if (p.length >= 2 && target === p[p.length - 2]) {
+                p.pop();
+                afterChange();
+                return true;
+            }
+            if (isComplete(color)) return false;
+
+            const ep = endpointOf[target];
+            if (ep >= 0) {
+                if (ep === color && target !== p[0]) {
+                    p.push(target);
+                    flashes.push({ cell: target, t: performance.now() });
+                    sndLink();
+                    afterChange();
+                    return true;
+                }
+                return false; // dots are walls to every other pipe
+            }
+
+            const o = owner[target];
+            if (o === color) {
+                // Looped onto our own pipe: rewind back to that cell
+                p.length = p.indexOf(target) + 1;
+                afterChange();
+                return true;
+            }
+            if (o >= 0) {
+                // Cut the other pipe short from the stolen cell onward
+                const q = paths[o];
+                q.length = q.indexOf(target);
+                sndBreak();
+            }
+            p.push(target);
+            sndTick(p.length);
+            afterChange();
+            return true;
+        }
+
+        function afterChange() {
+            if (drag) drag.changed = true;
+            rebuildOwner();
+            updateHud();
+            checkWin();
+        }
+
+        function checkWin() {
+            if (solved) return;
+            if (coveredCells() !== size * size) return;
+            for (let c = 0; c < flows; c++) if (!isComplete(c)) return;
+            solved = true;
+            if (drag) { moves++; drag = null; updateHud(); }
+            winStart = performance.now();
+            canvas.classList.add("won");
+            sndWin();
+            const par = flows;
+            winStats.textContent = moves <= par
+                ? "Solved in " + moves + " moves — perfect flow!"
+                : "Solved in " + moves + " moves · par " + par;
+            setTimeout(() => winOverlay.classList.add("show"), 900);
+        }
+
+        /* ---------- Pointer input ---------- */
+        function cellFromEvent(e) {
+            const r = canvas.getBoundingClientRect();
+            let gx = Math.floor((e.clientX - r.left) / cell);
+            let gy = Math.floor((e.clientY - r.top) / cell);
+            gx = Math.max(0, Math.min(size - 1, gx));
+            gy = Math.max(0, Math.min(size - 1, gy));
+            return idx(gx, gy);
+        }
+
+        canvas.addEventListener("pointerdown", e => {
+            if (solved || drag) return;
+            const cellId = cellFromEvent(e);
+            const ep = endpointOf[cellId];
+            let color = -1, changed = false;
+
+            if (ep >= 0) {
+                // Start fresh from this dot
+                changed = paths[ep].length > 1 || paths[ep][0] !== cellId;
+                paths[ep] = [cellId];
+                color = ep;
+            } else if (owner[cellId] >= 0) {
+                // Cut the pipe back to here and pick up drawing
+                color = owner[cellId];
+                const p = paths[color];
+                const i = p.indexOf(cellId);
+                changed = i < p.length - 1;
+                p.length = i + 1;
+            }
+            if (color < 0) return;
+
+            drag = { color, pointerId: e.pointerId, changed };
+            try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is best-effort */ }
+            sndTick(paths[color].length);
+            rebuildOwner();
+            updateHud();
+            e.preventDefault();
+        });
+
+        canvas.addEventListener("pointermove", e => {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            const target = cellFromEvent(e);
+            // The pointer may skip cells on a fast drag: walk toward it one
+            // cell at a time, preferring the axis with more ground to cover.
+            let guard = size * 4;
+            while (guard-- > 0) {
+                const p = paths[drag.color];
+                const last = p[p.length - 1];
+                if (target === last) break;
+                const dx = cx(target) - cx(last);
+                const dy = cy(target) - cy(last);
+                const stepX = idx(cx(last) + Math.sign(dx), cy(last));
+                const stepY = idx(cx(last), cy(last) + Math.sign(dy));
+                const order = Math.abs(dx) >= Math.abs(dy)
+                    ? [dx !== 0 && stepX, dy !== 0 && stepY]
+                    : [dy !== 0 && stepY, dx !== 0 && stepX];
+                let moved = false;
+                for (const step of order) {
+                    if (step === false) continue;
+                    if (tryStep(drag.color, step)) { moved = true; break; }
+                }
+                if (!moved || !drag) break; // blocked, or the win consumed the drag
+            }
+        });
+
+        function endDrag(e) {
+            if (!drag || e.pointerId !== drag.pointerId) return;
+            if (drag.changed) moves++;
+            drag = null;
+            updateHud();
+        }
+        canvas.addEventListener("pointerup", endDrag);
+        canvas.addEventListener("pointercancel", endDrag);
+
+        /* ---------- Sound (WebAudio, tiny synth blips) ---------- */
+        let audioCtx = null;
+        function audio() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                if (!audioCtx) audioCtx = new AC();
+                if (audioCtx.state === "suspended") audioCtx.resume();
+                return audioCtx;
+            } catch (e) { return null; }
+        }
+
+        function blip(freq, dur, vol, type) {
+            try {
+                const ac = audio();
+                if (!ac) return;
+                const t = ac.currentTime;
+                const osc = ac.createOscillator();
+                const gain = ac.createGain();
+                osc.type = type || "triangle";
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(vol, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                osc.connect(gain); gain.connect(ac.destination);
+                osc.start(t); osc.stop(t + dur + 0.02);
+            } catch (e) { /* sound is never worth breaking the game */ }
+        }
+
+        function sndTick(len) { blip(260 + len * 22, 0.06, 0.035); }
+        function sndBreak() { blip(150, 0.09, 0.05, "sawtooth"); }
+        function sndLink() { blip(520, 0.1, 0.07); setTimeout(() => blip(780, 0.14, 0.07), 70); }
+        function sndNotQuite() { blip(330, 0.12, 0.06); setTimeout(() => blip(262, 0.16, 0.06), 110); }
+        function sndWin() {
+            [392, 494, 587, 784].forEach((f, i) =>
+                setTimeout(() => blip(f, 0.28, 0.09), i * 110));
+        }
+
+        /* ---------- Rendering ---------- */
+        function layout() {
+            const avail = Math.min(window.innerWidth - 32, 520);
+            cssSize = Math.max(260, avail);
+            cell = cssSize / size;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.style.width = cssSize + "px";
+            canvas.style.height = cssSize + "px";
+            canvas.width = Math.round(cssSize * dpr);
+            canvas.height = Math.round(cssSize * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        const center = c => [cx(c) * cell + cell / 2, cy(c) * cell + cell / 2];
+
+        function draw(now) {
+            ctx.clearRect(0, 0, cssSize, cssSize);
+
+            // Grid lines
+            ctx.strokeStyle = "rgba(51, 65, 85, 0.35)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 1; i < size; i++) {
+                ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, cssSize);
+                ctx.moveTo(0, i * cell); ctx.lineTo(cssSize, i * cell);
+            }
+            ctx.stroke();
+
+            // When every pair is linked but cells remain empty, pulse the
+            // gaps in amber so it's obvious the puzzle isn't finished.
+            if (allLinked) {
+                const k = reducedMotion ? 0.5 : 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(now / 300));
+                ctx.fillStyle = "rgba(251, 191, 36, " + (0.1 * k + 0.05).toFixed(3) + ")";
+                ctx.strokeStyle = "rgba(251, 191, 36, " + (0.55 * k).toFixed(3) + ")";
+                ctx.lineWidth = 2;
+                for (let i = 0; i < owner.length; i++) {
+                    if (owner[i] >= 0 || endpointOf[i] >= 0) continue;
+                    const x = cx(i) * cell, y = cy(i) * cell;
+                    ctx.fillRect(x + 2, y + 2, cell - 4, cell - 4);
+                    ctx.strokeRect(x + 3, y + 3, cell - 6, cell - 6);
+                }
+            }
+
+            // Dim cell fill under each pipe
+            for (let c = 0; c < flows; c++) {
+                ctx.fillStyle = PALETTE[c];
+                ctx.globalAlpha = 0.13;
+                for (const cellId of paths[c]) {
+                    ctx.fillRect(cx(cellId) * cell + 1, cy(cellId) * cell + 1, cell - 2, cell - 2);
+                }
+            }
+            ctx.globalAlpha = 1;
+
+            // Pipes
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            for (let c = 0; c < flows; c++) {
+                const p = paths[c];
+                if (p.length < 2) continue;
+                const done = isComplete(c);
+                ctx.strokeStyle = PALETTE[c];
+                ctx.lineWidth = cell * 0.34;
+                ctx.shadowColor = PALETTE[c];
+                ctx.shadowBlur = done ? cell * 0.45 : cell * 0.2;
+                ctx.beginPath();
+                const [sx, sy] = center(p[0]);
+                ctx.moveTo(sx, sy);
+                for (let i = 1; i < p.length; i++) {
+                    const [x, y] = center(p[i]);
+                    ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+
+            // Dots
+            const pulse = reducedMotion ? 0 : Math.sin(now / 500) * 0.02;
+            for (let c = 0; c < flows; c++) {
+                const done = isComplete(c);
+                for (const cellId of endpoints[c]) {
+                    const [x, y] = center(cellId);
+                    ctx.fillStyle = PALETTE[c];
+                    ctx.shadowColor = PALETTE[c];
+                    ctx.shadowBlur = done ? cell * 0.5 : cell * 0.25;
+                    ctx.beginPath();
+                    ctx.arc(x, y, cell * (0.3 + (done ? pulse : 0)), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.shadowBlur = 0;
+
+            // Ring highlight on the drag head
+            if (drag) {
+                const p = paths[drag.color];
+                const [x, y] = center(p[p.length - 1]);
+                ctx.strokeStyle = PALETTE[drag.color];
+                ctx.globalAlpha = 0.8;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, cell * 0.42, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            // Link flashes: an expanding ring where a pair just connected
+            flashes = flashes.filter(f => now - f.t < 500);
+            for (const f of flashes) {
+                const k = (now - f.t) / 500;
+                const [x, y] = center(f.cell);
+                ctx.strokeStyle = "#fff";
+                ctx.globalAlpha = 0.6 * (1 - k);
+                ctx.lineWidth = 3 * (1 - k);
+                ctx.beginPath();
+                ctx.arc(x, y, cell * (0.3 + k * 0.7), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            // Win sweep: a bright spark travels along every pipe
+            if (solved && !reducedMotion) {
+                const t = (now - winStart) / 1000;
+                for (let c = 0; c < flows; c++) {
+                    const p = paths[c];
+                    if (p.length < 2) continue;
+                    const prog = ((t * 0.45 + c * 0.13) % 1) * (p.length - 1);
+                    const i = Math.floor(prog), frac = prog - i;
+                    const [ax, ay] = center(p[i]);
+                    const [bx, by] = center(p[Math.min(i + 1, p.length - 1)]);
+                    const x = ax + (bx - ax) * frac;
+                    const y = ay + (by - ay) * frac;
+                    ctx.fillStyle = "#fff";
+                    ctx.shadowColor = PALETTE[c];
+                    ctx.shadowBlur = cell * 0.6;
+                    ctx.beginPath();
+                    ctx.arc(x, y, cell * 0.12, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        /* ---------- Controls ---------- */
+        document.querySelectorAll(".sizeBtn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll(".sizeBtn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                size = parseInt(btn.dataset.size, 10);
+                layout();
+                generate();
+            });
+        });
+        document.getElementById("newBtn").addEventListener("click", generate);
+        document.getElementById("againBtn").addEventListener("click", generate);
+        window.addEventListener("resize", layout);
+
+        /* ---------- Boot ---------- */
+        layout();
+        generate();
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>
