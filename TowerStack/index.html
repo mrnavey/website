@@ -271,7 +271,24 @@
   let baseW = 0, groundY = 0;
   let swingT = 0, swingSpeed = 1.6, ropeLen = 0;
   let score = 0, combo = 0;
+
+  // High scores persist across visits via localStorage
+  const BEST_KEY = 'towerstack_bests';
   const bests = { easy: 0, med: 0, hard: 0 };
+  function loadBests() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(BEST_KEY));
+      if (saved && typeof saved === 'object') {
+        for (const k of ['easy', 'med', 'hard']) {
+          if (Number.isFinite(saved[k])) bests[k] = saved[k];
+        }
+      }
+    } catch (e) { /* corrupt or unavailable storage — start fresh */ }
+  }
+  function saveBests() {
+    try { localStorage.setItem(BEST_KEY, JSON.stringify(bests)); } catch (e) { /* private mode / full — ignore */ }
+  }
+  loadBests();
   let camY = 0, camTarget = 0;
   let shake = 0;
   let flashA = 0;              // perfect flash alpha
@@ -442,6 +459,7 @@
     shake = 10;
     if (score > bests[diff]) {
       bests[diff] = score;
+      saveBests();
       document.getElementById('newbest').classList.remove('hidden');
     } else {
       document.getElementById('newbest').classList.add('hidden');
