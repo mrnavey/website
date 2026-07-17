@@ -149,6 +149,15 @@
     background: var(--ink-dim);
     border-color: var(--ink-dim);
   }
+  .overlay .backlink {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    text-decoration: none;
+    margin-top: 10px;
+  }
+  .overlay .backlink:hover { color: var(--ink); }
   .diffrow button[data-d="hard"].on {
     background: #c75f33;
     border-color: #c75f33;
@@ -172,6 +181,7 @@
     <button data-d="hard">Hard</button>
   </div>
   <button id="startBtn">Tap to play</button>
+  <a class="backlink" href="/index.html">&larr; The Arcade</a>
 </div>
 
 <div class="overlay hidden" id="overOv">
@@ -185,6 +195,7 @@
     <button data-d="hard">Hard</button>
   </div>
   <button id="againBtn">Again</button>
+  <a class="backlink" href="/index.html">&larr; The Arcade</a>
 </div>
 
 <script>
@@ -195,8 +206,16 @@
 
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1);
+    const oldW = W;
     W = window.innerWidth;
     H = window.innerHeight;
+    // Keep the tower centered under the pivot when the window resizes/rotates
+    if (oldW && W !== oldW && blocks.length) {
+      const dx = (W - oldW) / 2;
+      for (const b of blocks) b.x += dx;
+      for (const d of debris) d.x += dx;
+      if (cur && state === 'fall') cur.x += dx;
+    }
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -248,6 +267,7 @@
     muted = !muted;
     muteBtn.innerHTML = muted ? '&#128263;' : '&#128266;'; // 🔇 / 🔊
     muteBtn.style.opacity = muted ? 0.45 : 1;
+    savePrefs();
   });
 
   // ---------------- game state ----------------
@@ -289,6 +309,44 @@
     try { localStorage.setItem(BEST_KEY, JSON.stringify(bests)); } catch (e) { /* private mode / full — ignore */ }
   }
   loadBests();
+
+  // Tallest tower (blocks landed) per difficulty — drives the "BEST" line to beat
+  const BESTH_KEY = 'towerstack_besth';
+  const bestH = { easy: 0, med: 0, hard: 0 };
+  function loadBestH() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(BESTH_KEY));
+      if (saved && typeof saved === 'object') {
+        for (const k of ['easy', 'med', 'hard']) {
+          if (Number.isFinite(saved[k])) bestH[k] = saved[k];
+        }
+      }
+    } catch (e) { /* start fresh */ }
+  }
+  function saveBestH() {
+    try { localStorage.setItem(BESTH_KEY, JSON.stringify(bestH)); } catch (e) { /* ignore */ }
+  }
+  loadBestH();
+
+  // Mute state and last-picked difficulty persist across visits too
+  const PREF_KEY = 'towerstack_prefs';
+  function loadPrefs() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PREF_KEY));
+      if (p && typeof p === 'object') {
+        if (p.muted) {
+          muted = true;
+          muteBtn.innerHTML = '&#128263;';
+          muteBtn.style.opacity = 0.45;
+        }
+        if (DIFF[p.diff]) setDiff(p.diff);
+      }
+    } catch (e) { /* start fresh */ }
+  }
+  function savePrefs() {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ muted, diff })); } catch (e) { /* ignore */ }
+  }
+  loadPrefs();
   let camY = 0, camTarget = 0;
   let shake = 0;
   let flashA = 0;              // perfect flash alpha
@@ -355,8 +413,23 @@
   function maxAngle() { return D().baseAngle + Math.min(D().angleCap, score * D().angleGrow); }
 
   window.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
+    if (e.target.closest('button, a')) return;
     tap();
+  });
+
+  // Keyboard: Space/Enter drops the block (or starts/restarts from an overlay)
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'Space' && e.code !== 'Enter') return;
+    if (e.repeat) return;
+    if (e.target instanceof Element && e.target.closest('button, a')) return; // native activation
+    e.preventDefault();
+    if (state === 'start') {
+      document.getElementById('startBtn').click();
+    } else if (state === 'over' && !document.getElementById('overOv').classList.contains('hidden')) {
+      document.getElementById('againBtn').click();
+    } else {
+      tap();
+    }
   });
 
   document.getElementById('startBtn').addEventListener('click', () => {
@@ -375,6 +448,7 @@
     document.querySelectorAll('.diffrow button').forEach(b => {
       b.classList.toggle('on', b.dataset.d === d);
     });
+    savePrefs();
     updateScore();
   }
   document.querySelectorAll('.diffrow button').forEach(b => {
@@ -386,10 +460,10 @@
 
   // whole overlay is tappable, not just the button — mobile-friendly
   document.getElementById('startOv').addEventListener('click', e => {
-    if (!e.target.closest('button')) document.getElementById('startBtn').click();
+    if (!e.target.closest('button, a')) document.getElementById('startBtn').click();
   });
   document.getElementById('overOv').addEventListener('click', e => {
-    if (!e.target.closest('button')) document.getElementById('againBtn').click();
+    if (!e.target.closest('button, a')) document.getElementById('againBtn').click();
   });
 
   // ---------------- landing ----------------
@@ -457,6 +531,8 @@
     state = 'over';
     sndOver();
     shake = 10;
+    const h = blocks.length - 1; // blocks landed on top of the base
+    if (h > bestH[diff]) { bestH[diff] = h; saveBestH(); }
     if (score > bests[diff]) {
       bests[diff] = score;
       saveBests();
@@ -547,6 +623,23 @@
     ctx.fillRect(0, groundY, W, 6);
     ctx.fillStyle = '#2d261d';
     ctx.fillRect(0, groundY + 6, W, H);
+
+    // previous best height — a dashed line to aim for
+    if (bestH[diff] > 0 && blocks.length) {
+      const lineY = -(bestH[diff] + 1) * BLOCK_H; // top surface of the record tower
+      ctx.strokeStyle = 'rgba(210,171,98,0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(0, lineY);
+      ctx.lineTo(W, lineY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '700 11px "Courier New", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(210,171,98,0.75)';
+      ctx.fillText('BEST', W - 10, lineY - 6);
+    }
 
     // tower
     for (const b of blocks) drawBlock(b.x, b.y, b.w, BLOCK_H, b.c);
