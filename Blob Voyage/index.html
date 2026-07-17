@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blob Voyage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-edge: #334155;
+            --ink: #e2e8f0;
+            --ink-dim: #94a3b8;
+            --glow: #a3e635; /* lime — blob green */
+            --coin: #fbbf24;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 16px 40px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        a.back {
+            align-self: flex-start;
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            text-decoration: none;
+        }
+        a.back:hover { color: var(--ink); }
+
+        h1 {
+            font-family: 'Silkscreen', monospace;
+            font-weight: 700;
+            font-size: clamp(22px, 5vw, 34px);
+            margin: 14px 0 4px;
+            color: var(--glow);
+            text-shadow: 0 0 18px rgba(163, 230, 53, 0.35);
+        }
+
+        .hint {
+            font-size: 14px;
+            color: var(--ink-dim);
+            margin: 0 0 14px;
+            text-align: center;
+        }
+
+        .hud {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        .hud .stat {
+            font-family: 'Silkscreen', monospace;
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            color: var(--ink-dim);
+            text-align: center;
+        }
+        .hud .stat b { color: var(--ink); }
+        .hud .stat.coins b { color: var(--coin); }
+
+        button {
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--ink-dim);
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-dim); }
+        button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+        button:disabled { opacity: 0.45; cursor: default; }
+        button.accent { color: var(--glow); border-color: rgba(163, 230, 53, 0.5); }
+
+        .board-wrap { position: relative; }
+
+        canvas {
+            display: block;
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 14px;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        /* ---------- Overlays (results + shop) ---------- */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.72);
+            border-radius: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 5;
+        }
+        .overlay.show { opacity: 1; pointer-events: auto; }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--panel-edge);
+            border-radius: 14px;
+            padding: 20px 22px;
+            width: min(480px, 92%);
+            max-height: 92%;
+            overflow-y: auto;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .panel h2 {
+            font-family: 'Silkscreen', monospace;
+            font-size: 18px;
+            color: var(--glow);
+            margin: 0 0 12px;
+        }
+        .panel h2.best {
+            color: var(--coin);
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+
+        .tally {
+            font-size: 15px;
+            color: var(--ink-dim);
+            margin: 0 0 14px;
+            line-height: 1.7;
+        }
+        .tally b { color: var(--ink); }
+        .tally .coinline { color: var(--coin); font-weight: 800; font-size: 17px; }
+
+        .btnrow { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+        /* Shop */
+        .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+        .tabs button.active { color: var(--glow); border-color: var(--glow); }
+
+        .shoprow {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-align: left;
+            padding: 9px 6px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+        }
+        .shoprow .info { flex: 1; min-width: 0; }
+        .shoprow .name { font-weight: 800; font-size: 14px; }
+        .shoprow .desc { font-size: 12px; color: var(--ink-dim); }
+        .pips { display: flex; gap: 3px; margin-top: 3px; }
+        .pip { width: 10px; height: 5px; border-radius: 2px; background: #334155; }
+        .pip.on { background: var(--glow); }
+        .shoprow button { white-space: nowrap; min-width: 92px; }
+        .shoprow button.max { color: var(--coin); border-color: transparent; }
+
+        .wardsection {
+            font-family: 'Silkscreen', monospace;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            color: var(--ink-dim);
+            text-transform: uppercase;
+            text-align: left;
+            margin: 14px 0 6px;
+        }
+        .warditems { display: flex; flex-wrap: wrap; gap: 8px; }
+        .warditem {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            text-transform: none;
+            letter-spacing: 0;
+            padding: 7px 10px;
+        }
+        .warditem .dot {
+            width: 14px; height: 14px; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.25);
+            display: inline-block;
+        }
+        .warditem.equipped { color: var(--glow); border-color: var(--glow); }
+        .warditem .price { color: var(--coin); font-size: 12px; }
+
+        .shophead {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .shophead .coins {
+            font-family: 'Silkscreen', monospace;
+            font-size: 13px;
+            color: var(--coin);
+        }
+    </style>
+</head>
+<body>
+    <a class="back" href="/index.html">&larr; The Arcade</a>
+    <h1>Blob Voyage</h1>
+    <p class="hint">Click to lock angle, power, and where the swing lands. The blob can't wait.</p>
+
+    <div class="hud">
+        <span class="stat coins">Coins: <b id="hudCoins">0</b></span>
+        <span class="stat">Best: <b id="hudBest">0m</b></span>
+        <span class="stat">Distance: <b id="hudDist">0m</b></span>
+        <span class="stat">Boosts: <b id="hudBoosts">—</b></span>
+        <button id="slamBtn" style="display:none">Slam &darr;</button>
+        <button id="muteBtn" title="Toggle sound">🔊</button>
+        <button id="shopBtn" class="accent">Shop</button>
+    </div>
+
+    <div class="board-wrap">
+        <canvas id="game"></canvas>
+
+        <!-- Results -->
+        <div class="overlay" id="resultsOverlay">
+            <div class="panel">
+                <h2 id="resultsTitle">FLIGHT COMPLETE</h2>
+                <p class="tally" id="resultsTally"></p>
+                <div class="btnrow">
+                    <button id="againBtn" class="accent">Launch again</button>
+                    <button id="resultsShopBtn">Shop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shop -->
+        <div class="overlay" id="shopOverlay">
+            <div class="panel">
+                <div class="shophead">
+                    <h2 style="margin:0">SHOP</h2>
+                    <span class="coins" id="shopCoins">0 c</span>
+                </div>
+                <div class="tabs">
+                    <button id="tabUpgrades" class="active">Upgrades</button>
+                    <button id="tabWardrobe">Wardrobe</button>
+                </div>
+                <div id="shopBody"></div>
+                <div class="btnrow" style="margin-top:14px">
+                    <button id="shopCloseBtn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        "use strict";
+
+        /* ============================================================
+           Blob Voyage — whack a deliriously happy blob into the sky.
+           ============================================================ */
+
+        /* ---------- Save data ---------- */
+        const SAVE_KEY = "blobVoyage.save.v1";
+
+        const UPGRADES = {
+            power:  { name: "Mallet Power",  desc: "+12% launch speed per level",          max: 10, base: 30,  growth: 1.7  },
+            aero:   { name: "Aerodynamics",  desc: "-7% air drag per level",               max: 10, base: 40,  growth: 1.7  },
+            rubber: { name: "Rubber Body",   desc: "Bouncier landings",                    max: 10, base: 40,  growth: 1.7  },
+            sweet:  { name: "Sweet Spot",    desc: "Bigger crit zone, stronger crits",     max: 6,  base: 60,  growth: 1.8  },
+            luck:   { name: "Lucky Skies",   desc: "Friendlier skies, fewer hazards",      max: 8,  base: 50,  growth: 1.75 },
+            burp:   { name: "Rocket Burps",  desc: "+1 mid-air boost (click while flying)",max: 5,  base: 100, growth: 2.2  },
+            slam:   { name: "Slam Dive",     desc: "Dive with S/↓ — trampolines mega-bounce", max: 5, base: 80, growth: 2.0 },
+            scope:  { name: "Blob Scope",    desc: "Preview your launch arc while aiming", max: 3,  base: 120, growth: 2.0 },
+            piggy:  { name: "Piggy Bank",    desc: "+10% coins earned per level",          max: 8,  base: 45,  growth: 1.75 }
+        };
+
+        const COSMETICS = {
+            color: [
+                { id: "green",  name: "Lime",       cost: 0,    body: "#a3e635" },
+                { id: "pink",   name: "Bubblegum",  cost: 50,   body: "#f472b6" },
+                { id: "blue",   name: "Sky",        cost: 80,   body: "#60a5fa" },
+                { id: "orange", name: "Peach",      cost: 120,  body: "#fb923c" },
+                { id: "purple", name: "Grape",      cost: 200,  body: "#a78bfa" },
+                { id: "red",    name: "Cherry",     cost: 400,  body: "#ef4444" },
+                { id: "gold",   name: "24 Karat",   cost: 2000, body: "#fbbf24" }
+            ],
+            hat: [
+                { id: "none",      name: "Bare head",      cost: 0 },
+                { id: "beanie",    name: "Beanie",         cost: 150 },
+                { id: "propeller", name: "Propeller Cap",  cost: 400 },
+                { id: "tophat",    name: "Top Hat",        cost: 900 },
+                { id: "crown",     name: "Crown",          cost: 5000 }
+            ],
+            glasses: [
+                { id: "none",   name: "No specs",       cost: 0 },
+                { id: "round",  name: "Round Glasses",  cost: 120 },
+                { id: "shades", name: "Sunglasses",     cost: 350 },
+                { id: "stars",  name: "Star Shades",    cost: 800 }
+            ],
+            neck: [
+                { id: "none",   name: "Bare neck",   cost: 0 },
+                { id: "scarf",  name: "Cozy Scarf",  cost: 150 },
+                { id: "chain",  name: "Gold Chain",  cost: 500 },
+                { id: "pearls", name: "Pearls",      cost: 1000 }
+            ],
+            weapon: [
+                { id: "mallet", name: "Trusty Mallet", cost: 0 },
+                { id: "bat",    name: "Baseball Bat",  cost: 250 },
+                { id: "golf",   name: "Golf Club",     cost: 600 },
+                { id: "pan",    name: "Frying Pan",    cost: 1200 },
+                { id: "sword",  name: "Hero Sword",    cost: 2500 }
+            ]
+        };
+
+        function defaultSave() {
+            return {
+                coins: 0,
+                best: 0,
+                totalLaunches: 0,
+                muted: false,
+                up: { power: 0, aero: 0, rubber: 0, sweet: 0, luck: 0, burp: 0, slam: 0, scope: 0, piggy: 0 },
+                owned: { color: ["green"], hat: ["none"], glasses: ["none"], neck: ["none"], weapon: ["mallet"] },
+                eq: { color: "green", hat: "none", glasses: "none", neck: "none", weapon: "mallet" }
+            };
+        }
+
+        let SAVE = defaultSave();
+        (function load() {
+            try {
+                const raw = localStorage.getItem(SAVE_KEY);
+                if (!raw) return;
+                const d = JSON.parse(raw);
+                const def = defaultSave();
+                SAVE = {
+                    coins: Number(d.coins) || 0,
+                    best: Number(d.best) || 0,
+                    totalLaunches: Number(d.totalLaunches) || 0,
+                    muted: !!d.muted,
+                    up: Object.assign(def.up, d.up || {}),
+                    owned: Object.assign(def.owned, d.owned || {}),
+                    eq: Object.assign(def.eq, d.eq || {})
+                };
+                for (const k of Object.keys(UPGRADES)) {
+                    SAVE.up[k] = Math.max(0, Math.min(UPGRADES[k].max, Number(SAVE.up[k]) || 0));
+                }
+            } catch (e) { SAVE = defaultSave(); }
+        })();
+
+        function save() {
+            try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) { /* ok */ }
+        }
+
+        function upgradeCost(key) {
+            const u = UPGRADES[key];
+            return Math.ceil(u.base * Math.pow(u.growth, SAVE.up[key]));
+        }
+
+        function bodyColor() {
+            const c = COSMETICS.color.find(c => c.id === SAVE.eq.color);
+            return c ? c.body : "#a3e635";
+        }
+
+        /* ---------- Canvas / camera ---------- */
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        let cssW = 0, cssH = 0;
+        let M2P = 14;          // pixels per world meter
+        let groundY = 0;       // screen y of world y=0
+
+        function layout() {
+            cssW = Math.min(window.innerWidth - 32, 920);
+            cssH = Math.round(Math.min(Math.max(cssW * 0.55, 300), 540));
+            const dpr = window.devicePixelRatio || 1;
+            canvas.style.width = cssW + "px";
+            canvas.style.height = cssH + "px";
+            canvas.width = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            M2P = cssH / 34;               // ~34 m of sky visible
+            groundY = cssH - 56;
+        }
+
+        let camX = 0, camY = 0, shake = 0;
+        const W2SX = wx => (wx - camX) * M2P;
+        const W2SY = wy => groundY - (wy - camY) * M2P;
+
+        /* ---------- Game state ---------- */
+        const PHASE = { ANGLE: 0, POWER: 1, CONTACT: 2, SWING: 3, FLIGHT: 4, DONE: 5 };
+        let phase = PHASE.ANGLE;
+
+        const TEE_X = 3, BLOB_R = 0.9;
+        const blob = {
+            x: TEE_X, y: BLOB_R, vx: 0, vy: 0,
+            spin: 0,             // +1 backspin (low hit), -1 topspin (high hit)
+            rot: 0,
+            face: "idle",        // idle | braced | ouch | joy | splat
+            faceT: 0,            // time left on temporary faces
+            rolling: false,
+            slamming: false
+        };
+
+        // aim state
+        let aim = { angle: 45, power: 0.7, contact: 0, crit: false, t: 0 };
+        let swingT = 0;          // swing animation progress
+        // flight bookkeeping
+        let dist = 0, pickupCoins = 0, launchCrit = false;
+        let burpCharges = 0, stoppedT = 0, resultsShown = false;
+        let combo = 0, maxCombo = 0, comboCoins = 0;   // boost chains without touching ground
+        let passedBest = false;                        // fanfare when overtaking the best flag
+
+        // world objects
+        let objects = [], spawnedUpTo = 0;
+        // fx
+        let particles = [], bubbles = [], popups = [], rings = [];
+        let hitstopT = 0, slowmoT = 0;            // impact freeze / slow motion
+        let flashPeak = 0, flashEnd = 0, flashDur = 1;
+        let armPhase = 0;
+
+        function flash(alpha, ms) {
+            flashPeak = alpha; flashDur = ms;
+            flashEnd = performance.now() + ms;
+        }
+
+        /* ---------- Jelly soft body ----------
+           The blob's outline is a ring of spring-loaded points. Impacts
+           dent the near side and bulge the far side, then the wobble
+           ripples around the ring like water in zero gravity.
+           Angles are in the blob's local canvas space (y down):
+           0 = right, PI/2 = below, PI = left, -PI/2 = above.
+        ---------------------------------------- */
+        const JN = 16;
+        const jellyOff = new Float32Array(JN);
+        const jellyVel = new Float32Array(JN);
+
+        function jellyImpulse(dir, power) {
+            for (let i = 0; i < JN; i++) {
+                const a = (i / JN) * Math.PI * 2;
+                const align = Math.cos(a - dir);
+                if (align > 0) jellyVel[i] -= power * align * align;        // dent the hit side
+                else jellyVel[i] += power * 0.55 * align * align;           // bulge the far side
+            }
+        }
+
+        function jellyStep(dt) {
+            if (dt <= 0) return;
+            const K = 95, NK = 170, DAMP = 5.2;
+            for (let i = 0; i < JN; i++) {
+                const prev = jellyOff[(i + JN - 1) % JN], next = jellyOff[(i + 1) % JN];
+                const f = -K * jellyOff[i] + NK * (prev + next - 2 * jellyOff[i]) - DAMP * jellyVel[i];
+                jellyVel[i] += f * dt;
+            }
+            for (let i = 0; i < JN; i++) {
+                jellyOff[i] = clamp(jellyOff[i] + jellyVel[i] * dt, -0.45, 0.7);
+            }
+        }
+
+        const rand = (a, b) => a + Math.random() * (b - a);
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+        /* ---------- Derived stats ---------- */
+        const maxSpeed   = () => 26 * (1 + 0.12 * SAVE.up.power);
+        const dragK      = () => 0.10 * (1 - 0.07 * SAVE.up.aero);
+        const restitution= () => Math.min(0.34 + 0.045 * SAVE.up.rubber, 0.80);
+        const sweetHalf  = () => 0.12 + 0.035 * SAVE.up.sweet;   // crit window (fraction of blob height)
+        const critMult   = () => 1.4 + 0.05 * SAVE.up.sweet;
+        const slamBounce = () => 1.6 + 0.25 * SAVE.up.slam;
+        const coinMult   = () => 1 + 0.10 * SAVE.up.piggy;
+
+        /* ---------- Reset / launch ---------- */
+        function resetRun() {
+            phase = PHASE.ANGLE;
+            Object.assign(blob, {
+                x: TEE_X, y: BLOB_R, vx: 0, vy: 0, spin: 0, rot: 0,
+                face: "idle", faceT: 0, rolling: false, slamming: false
+            });
+            aim = { angle: 45, power: 0.7, contact: 0, crit: false, t: 0 };
+            swingT = 0;
+            dist = 0; pickupCoins = 0; launchCrit = false;
+            combo = 0; maxCombo = 0; comboCoins = 0; passedBest = false;
+            burpCharges = SAVE.up.burp;
+            stoppedT = 0; resultsShown = false;
+            camX = 0; camY = 0;
+            objects = []; spawnedUpTo = 12;
+            particles = []; bubbles = []; popups = [];
+            document.getElementById("resultsOverlay").classList.remove("show");
+            updateHud();
+        }
+
+        function doLaunch() {
+            const power01 = aim.power;
+            let speed = maxSpeed() * (0.3 + 0.7 * power01);
+            const off = Math.abs(aim.contact);
+            launchCrit = aim.crit;
+            // hit quality: crit (sweet spot) / clean / scuffed (edge of the blob)
+            let quality = "clean";
+            if (launchCrit) { speed *= critMult(); quality = "crit"; }
+            else if (off > 0.6) { speed *= 1 - 0.35 * (off - 0.6) / 0.4; quality = "scuffed"; }
+
+            const angle = clamp(aim.angle + aim.contact * -10, 8, 84) * Math.PI / 180;
+            blob.vx = Math.cos(angle) * speed;
+            blob.vy = Math.sin(angle) * speed;
+            blob.spin = -aim.contact;               // low hit => backspin (+)
+            blob.face = "ouch"; blob.faceT = 0.3;
+
+            // ---- IMPACT JUICE ----
+            if (quality === "crit") {
+                jellyImpulse(Math.PI, 13);
+                hitstopT = 0.13; slowmoT = 0.55;
+                shake = 18;
+                flash(0.8, 200);
+                rings.push({ x: blob.x, y: blob.y, t: 0, max: 9, color: "#fde047" });
+                rings.push({ x: blob.x, y: blob.y, t: -0.06, max: 6, color: "#f8fafc" });
+                burst(blob.x, blob.y, 22, "#fde047", "star");
+                popups.push({ x: blob.x, y: blob.y + 2.5, text: "CRIT!!", t: 1.3, color: "#fde047", size: 32 });
+            } else if (quality === "scuffed") {
+                jellyImpulse(Math.PI + aim.contact * 0.8, 6);
+                hitstopT = 0.03;
+                shake = 5;
+                burst(blob.x, blob.y, 5, "#64748b", "dust");
+                popups.push({ x: blob.x, y: blob.y + 2.5, text: "SCUFFED...", t: 1.1, color: "#94a3b8", size: 16 });
+                sndWeak();
+            } else {
+                jellyImpulse(Math.PI, 9);
+                hitstopT = 0.07;
+                shake = 11;
+                flash(0.35, 110);
+                rings.push({ x: blob.x, y: blob.y, t: 0, max: 5, color: "#f8fafc" });
+                burst(blob.x, blob.y, 12, "#fde047", "star");
+                popups.push({ x: blob.x, y: blob.y + 2.5, text: "NICE!", t: 0.9, color: "#e2e8f0", size: 20 });
+            }
+            sndWeaponHit(SAVE.eq.weapon, quality);
+            SAVE.totalLaunches++;
+            save();
+            phase = PHASE.FLIGHT;
+        }
+
+        /* ---------- World objects ---------- */
+        function spawnWorld() {
+            const ahead = camX + cssW / M2P + 60;
+            while (spawnedUpTo < ahead) {
+                const segA = spawnedUpTo, segB = spawnedUpTo + 24;
+                spawnedUpTo = segB;
+                const luckT = SAVE.up.luck / UPGRADES.luck.max;
+                if (Math.random() < 0.82) {
+                    const w = [
+                        ["tramp",    0.24 + 0.08 * luckT],
+                        ["mushroom", 0.15 + 0.07 * luckT],
+                        ["balloon",  0.20 + 0.06 * luckT],
+                        ["rocket",   0.05 + 0.07 * luckT],
+                        ["glue",     0.13 * (1 - 0.75 * luckT)],
+                        ["cactus",   0.17 * (1 - 0.75 * luckT)]
+                    ];
+                    const total = w.reduce((s, e) => s + e[1], 0);
+                    let pick = Math.random() * total, type = "tramp";
+                    for (const [t, wt] of w) { pick -= wt; if (pick <= 0) { type = t; break; } }
+                    const x = rand(segA + 3, segB - 3);
+                    if (type === "balloon") objects.push({ type, x, y: rand(6, 22), r: 1.3, used: false });
+                    else if (type === "rocket") objects.push({ type, x, y: rand(7, 26), r: 1.5, used: false });
+                    else objects.push({ type, x, y: 0, r: 1.6, used: false });
+                }
+                if (Math.random() < 0.4) {
+                    // coin formation: arc in the air or line on the ground
+                    const n = 5 + Math.floor(Math.random() * 4);
+                    const x0 = rand(segA + 2, segB - 8);
+                    if (Math.random() < 0.6) {
+                        const yBase = rand(5, 20);
+                        for (let i = 0; i < n; i++) {
+                            objects.push({ type: "coin", x: x0 + i * 1.6, y: yBase + Math.sin(i / (n - 1) * Math.PI) * 3, r: 0.8, used: false });
+                        }
+                    } else {
+                        for (let i = 0; i < n; i++) {
+                            objects.push({ type: "coin", x: x0 + i * 1.6, y: 1.1, r: 0.8, used: false });
+                        }
+                    }
+                }
+            }
+        }
+
+        function hitObjects(dt) {
+            for (const o of objects) {
+                if (o.used) continue;
+                if (o.type === "coin" || o.type === "balloon" || o.type === "rocket") {
+                    const dx = blob.x - o.x, dy = blob.y - o.y;
+                    if (dx * dx + dy * dy > (o.r + BLOB_R) * (o.r + BLOB_R)) continue;
+                    o.used = true;
+                    if (o.type === "coin") {
+                        pickupCoins++;
+                        burst(o.x, o.y, 4, "#fbbf24", "spark");
+                        sndCoin();
+                    } else if (o.type === "balloon") {
+                        blob.vy += 7; blob.vx += 3;
+                        pickupCoins += 3;
+                        jellyImpulse(Math.PI / 2, 4);
+                        burst(o.x, o.y, 10, "#f472b6", "spark");
+                        ouchThenJoy("POP! TICKLES!");
+                        comboHit();
+                        sndPop();
+                    } else {
+                        blob.vx += 22; blob.vy += 6;
+                        jellyImpulse(Math.PI, 6);
+                        burst(o.x, o.y, 18, "#fb923c", "spark");
+                        ouchThenJoy("ZOOOOM!!");
+                        comboHit();
+                        sndRocket();
+                    }
+                    continue;
+                }
+                // ground objects: need blob near the ground within their span
+                if (Math.abs(blob.x - o.x) > o.r + BLOB_R * 0.6) continue;
+                const nearGround = blob.y - BLOB_R < 1.1;
+                if (!nearGround) continue;
+                if (o.type === "tramp" && blob.vy < -1) {
+                    const mult = blob.slamming ? slamBounce() : 1;
+                    jellyImpulse(Math.PI / 2, mult > 1 ? 12 : 8);
+                    blob.vy = Math.max(Math.abs(blob.vy) * 0.9, 13) * mult;
+                    blob.vx *= 1.04;
+                    blob.y = BLOB_R + 1.0;
+                    blob.slamming = false;
+                    blob.rolling = false;
+                    burst(o.x, 1, 10, "#22d3ee", "spark");
+                    ouchThenJoy(mult > 1 ? "MEGA BOING!!" : "BOING!");
+                    comboHit();
+                    sndBoing();
+                } else if (o.type === "mushroom" && blob.vy < 0.5) {
+                    o.used = true;
+                    blob.vx += 8;
+                    blob.vy = Math.max(blob.vy, 10);
+                    jellyImpulse(Math.PI / 2, 7);
+                    blob.y = BLOB_R + 0.8;
+                    blob.rolling = false;
+                    burst(o.x, 1, 10, "#f472b6", "spark");
+                    ouchThenJoy("SPROING!");
+                    comboHit();
+                    sndBoing();
+                } else if (o.type === "glue") {
+                    blob.vx *= Math.pow(0.02, dt);   // heavy goop
+                    if (Math.abs(blob.vx) > 2 && Math.random() < dt * 6) {
+                        burst(blob.x, 0.6, 2, "#a78bfa", "spark");
+                    }
+                } else if (o.type === "cactus") {
+                    o.used = true;
+                    blob.vx *= 0.08;
+                    blob.vy = Math.min(blob.vy, 2);
+                    combo = 0;
+                    jellyImpulse(0, 8);
+                    ouchThenJoy("HAHA! POINTY!");
+                    burst(blob.x, blob.y, 10, "#4ade80", "star");
+                    sndSplat();
+                }
+            }
+        }
+
+        function ouchThenJoy(text) {
+            blob.face = "ouch"; blob.faceT = 0.24;
+            if (text) bubbles.push({ text, t: 1.4, x: blob.x, y: blob.y });
+        }
+
+        // Chain boost objects without touching bare ground for bonus coins
+        function comboHit() {
+            combo++;
+            if (combo < 2) return;
+            maxCombo = Math.max(maxCombo, combo);
+            comboCoins += combo;
+            popups.push({
+                x: blob.x, y: blob.y + 3.5,
+                text: "COMBO ×" + combo, t: 1.1,
+                color: combo >= 5 ? "#fde047" : "#22d3ee",
+                size: Math.min(16 + combo * 3, 34)
+            });
+            sndCombo(combo);
+        }
+
+        /* ---------- Physics ---------- */
+        const G = 16;
+
+        function stepFlight(dt) {
+            // active boost input handled in click handler; slam handled by key
+            blob.vy -= G * dt;
+            const drag = dragK();
+            blob.vx -= blob.vx * drag * dt;
+            blob.vy -= blob.vy * drag * dt;
+            // Magnus lift from backspin
+            if (!blob.rolling && blob.spin > 0.05) blob.vy += blob.spin * 5.5 * dt;
+            blob.spin *= Math.max(0, 1 - 0.22 * dt);
+
+            blob.x += blob.vx * dt;
+            blob.y += blob.vy * dt;
+            blob.rot += (blob.rolling ? blob.vx / BLOB_R : blob.vx * 0.25) * dt;
+
+            // objects first: a trampoline must catch the blob BEFORE the
+            // bare-ground bounce eats the impact on fast falls
+            spawnWorld();
+            hitObjects(dt);
+
+            // ground
+            if (blob.y < BLOB_R) {
+                blob.y = BLOB_R;
+                if (blob.vy < -2.2 && !blob.rolling) {
+                    let rest = restitution();
+                    let vxKeep = 0.90;
+                    if (blob.spin < -0.05) {           // topspin: convert into forward speed
+                        blob.vx += Math.abs(blob.vy) * 0.18 * -blob.spin;
+                        vxKeep = 0.96;
+                    } else if (blob.spin > 0.05) {     // backspin bites into the ground
+                        vxKeep = 0.82;
+                    }
+                    if (blob.slamming) { rest = Math.min(rest * 1.15, 0.85); blob.slamming = false; }
+                    jellyImpulse(Math.PI / 2, clamp(Math.abs(blob.vy) * 0.3, 2, 11));
+                    blob.vy = -blob.vy * rest;
+                    blob.vx *= vxKeep;
+                    combo = 0;                         // bare ground breaks the chain
+                    shake = Math.min(8, Math.abs(blob.vy));
+                    burst(blob.x, 0.4, 6, "#94a3b8", "dust");
+                    ouchThenJoy(Math.random() < 0.4 ? "WHEEE!" : null);
+                    sndBounce(Math.abs(blob.vy));
+                } else if (blob.vy < 0) {
+                    blob.vy = 0;
+                    blob.rolling = true;
+                    blob.slamming = false;
+                    combo = 0;
+                }
+            }
+            if (blob.rolling) {
+                const friction = blob.spin < -0.05 ? 2.2 : 3.4;
+                const s = Math.sign(blob.vx);
+                blob.vx -= s * friction * dt;
+                if (Math.sign(blob.vx) !== s) blob.vx = 0;
+            }
+
+            dist = Math.max(dist, blob.x - TEE_X);
+            if (!passedBest && SAVE.best > 10 && dist > SAVE.best) {
+                passedBest = true;
+                popups.push({ x: blob.x, y: blob.y + 4, text: "PAST YOUR BEST!", t: 1.6, color: "#fbbf24", size: 24 });
+                confetti();
+                sndFanfare();
+            }
+
+            // joy trail
+            if (blob.face === "joy" && Math.hypot(blob.vx, blob.vy) > 12 && Math.random() < dt * 8) {
+                particles.push({ x: blob.x - 0.5, y: blob.y, vx: -2, vy: rand(1, 3), t: rand(0.5, 0.9), kind: "heart", color: "#f472b6" });
+            }
+            if (Math.random() < dt * 0.35 && !blob.rolling && Math.hypot(blob.vx, blob.vy) > 15) {
+                bubbles.push({ text: ["WHEEE!", "AGAIN!", "I LOVE THIS!", "FASTER!!", "BEST DAY!"][Math.floor(Math.random() * 5)], t: 1.4, x: blob.x, y: blob.y });
+            }
+
+            // stopped?
+            if (blob.rolling && Math.abs(blob.vx) < 0.4) {
+                stoppedT += dt;
+                if (stoppedT > 0.55 && !resultsShown) finishRun();
+            } else stoppedT = 0;
+
+            // camera
+            camX = Math.max(0, blob.x - (cssW / M2P) * 0.35);
+            const viewHM = cssH / M2P;
+            camY = Math.max(0, blob.y - viewHM * 0.55);
+        }
+
+        /* ---------- Run results / economy ---------- */
+        function finishRun() {
+            resultsShown = true;
+            phase = PHASE.DONE;
+            blob.face = "splat"; blob.faceT = 0.5;
+            jellyImpulse(Math.PI / 2, 10);
+            const d = Math.floor(dist);
+            const base = Math.floor(d / 5);
+            const critBonus = launchCrit ? Math.floor(d / 20) : 0;
+            const total = Math.round((base + pickupCoins + critBonus + comboCoins) * coinMult());
+            SAVE.coins += total;
+            const isBest = d > SAVE.best;
+            if (isBest) SAVE.best = d;
+            save();
+            updateHud();
+
+            setTimeout(() => {
+                blob.face = "joy";
+                bubbles.push({ text: "AGAIN! AGAIN!", t: 2.2, x: blob.x, y: blob.y });
+                if (isBest) { confetti(); sndFanfare(); } else sndSplat();
+            }, 500);
+
+            const title = document.getElementById("resultsTitle");
+            title.textContent = isBest ? "NEW BEST!" : "FLIGHT COMPLETE";
+            title.classList.toggle("best", isBest);
+            document.getElementById("resultsTally").innerHTML =
+                "Distance: <b>" + d + "m</b>" + (isBest ? " &#127942;" : "") + "<br>" +
+                "Distance coins: <b>" + base + "</b> &middot; Pickups: <b>" + pickupCoins + "</b>" +
+                (critBonus ? " &middot; Crit bonus: <b>" + critBonus + "</b>" : "") +
+                (maxCombo >= 2 ? "<br>Combo bonus (best &times;" + maxCombo + "): <b>" + comboCoins + "</b>" : "") +
+                (SAVE.up.piggy ? "<br>Piggy Bank &times;" + coinMult().toFixed(1) : "") +
+                "<br><span class='coinline'>+" + total + " coins</span>";
+            setTimeout(() => document.getElementById("resultsOverlay").classList.add("show"), 900);
+        }
+
+        /* ---------- Input ---------- */
+        canvas.addEventListener("pointerdown", e => {
+            e.preventDefault();
+            audio();
+            if (phase === PHASE.ANGLE) { phase = PHASE.POWER; sndTick(440); }
+            else if (phase === PHASE.POWER) { phase = PHASE.CONTACT; sndTick(520); }
+            else if (phase === PHASE.CONTACT) {
+                // contact marker position at this instant
+                const m = contactMarker();
+                aim.contact = m;
+                aim.crit = Math.abs(m) <= sweetHalf();
+                blob.face = "braced";
+                phase = PHASE.SWING;
+                swingT = 0;
+                sndWhoosh();
+            } else if (phase === PHASE.FLIGHT && !blob.rolling && burpCharges > 0 && blob.y > BLOB_R + 0.5) {
+                burpCharges--;
+                blob.vx += 9; blob.vy += 7;
+                blob.slamming = false;
+                jellyImpulse(Math.PI * 0.75, 5);
+                burst(blob.x - 0.8, blob.y - 0.5, 10, "#a3e635", "spark");
+                bubbles.push({ text: "BRAAAP!", t: 1.0, x: blob.x, y: blob.y });
+                sndRocket();
+                updateHud();
+            }
+        });
+
+        function doSlam() {
+            if (phase !== PHASE.FLIGHT || blob.rolling || blob.slamming || SAVE.up.slam < 1) return;
+            if (blob.y < BLOB_R + 2) return;
+            blob.slamming = true;
+            blob.vy = Math.min(blob.vy, -26 - 3 * SAVE.up.slam);
+            bubbles.push({ text: "SLAM!", t: 0.8, x: blob.x, y: blob.y });
+            sndWhoosh();
+        }
+        window.addEventListener("keydown", e => {
+            if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") { doSlam(); e.preventDefault(); }
+        });
+        document.getElementById("slamBtn").addEventListener("click", doSlam);
+
+        /* ---------- Aim helpers ---------- */
+        function contactMarker() {
+            // sweeps -1 (bottom) .. +1 (top), fast
+            return Math.sin(aim.t * 7);
+        }
+
+        function stepAim(dt) {
+            aim.t += dt;
+            if (phase === PHASE.ANGLE) aim.angle = 45 + 33 * Math.sin(aim.t * 2.1);
+            else if (phase === PHASE.POWER) aim.power = 0.5 + 0.5 * Math.sin(aim.t * 3.4);
+            else if (phase === PHASE.SWING) {
+                swingT += dt / 0.5;             // wind-up, then the whip
+                if (swingT >= 1) doLaunch();
+            }
+        }
+
+        /* ---------- FX ---------- */
+        function burst(x, y, n, color, kind) {
+            for (let i = 0; i < n; i++) {
+                const a = Math.random() * Math.PI * 2, sp = rand(2, 9);
+                particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: rand(0.3, 0.8), kind, color });
+            }
+        }
+        function confetti() {
+            for (let i = 0; i < 60; i++) {
+                particles.push({
+                    x: blob.x + rand(-6, 6), y: blob.y + rand(4, 14),
+                    vx: rand(-3, 3), vy: rand(-2, -8), t: rand(0.8, 1.8), kind: "confetti",
+                    color: ["#f472b6", "#a3e635", "#22d3ee", "#fbbf24", "#a78bfa"][i % 5]
+                });
+            }
+        }
+        function stepFx(dt) {
+            particles = particles.filter(p => (p.t -= dt) > 0);
+            for (const p of particles) {
+                p.x += p.vx * dt; p.y += p.vy * dt;
+                if (p.kind === "confetti" || p.kind === "dust") p.vy -= 9 * dt * (p.kind === "confetti" ? -1 : -1);
+                if (p.kind === "heart") p.vy += 1.5 * dt;
+            }
+            bubbles = bubbles.filter(b => (b.t -= dt) > 0);
+            popups = popups.filter(p => (p.t -= dt) > 0);
+            rings = rings.filter(r => (r.t += dt) < 0.55);
+            shake = Math.max(0, shake - 40 * dt);
+
+            // jelly wobble + flailing arms
+            jellyStep(dt);
+            const now = performance.now() / 1000;
+            if (phase <= PHASE.SWING) {
+                // gentle zero-gravity undulation while waiting on the tee
+                for (let i = 0; i < JN; i++) {
+                    jellyVel[i] += Math.sin(now * 2.1 + i * 1.31) * 0.35 * dt;
+                }
+            } else if (blob.rolling && Math.abs(blob.vx) > 2 && Math.random() < dt * 10) {
+                jellyVel[Math.floor(Math.random() * JN)] -= rand(0.5, 1.6);
+            }
+            const speed = Math.hypot(blob.vx, blob.vy);
+            const flail = phase === PHASE.FLIGHT && !blob.rolling ? clamp(speed / 16, 0.2, 2.4) : 0.15;
+            armPhase += dt * (2.5 + flail * 13);
+            if (blob.faceT > 0) {
+                blob.faceT -= dt;
+                if (blob.faceT <= 0 && blob.face !== "splat") blob.face = phase === PHASE.FLIGHT ? "joy" : "idle";
+                else if (blob.faceT <= 0) blob.face = "joy";
+            }
+        }
+
+        /* ---------- HUD ---------- */
+        function updateHud() {
+            document.getElementById("hudCoins").textContent = SAVE.coins;
+            document.getElementById("hudBest").textContent = SAVE.best + "m";
+            document.getElementById("hudDist").textContent = Math.floor(dist) + "m";
+            const boosts = [];
+            if (SAVE.up.burp > 0) boosts.push("💨×" + burpCharges);
+            if (SAVE.up.slam > 0) boosts.push("⬇ ready");
+            document.getElementById("hudBoosts").textContent = boosts.length ? boosts.join("  ") : "—";
+            document.getElementById("slamBtn").style.display = SAVE.up.slam > 0 ? "" : "none";
+            document.getElementById("muteBtn").textContent = SAVE.muted ? "🔇" : "🔊";
+        }
+
+        /* ---------- Sounds ---------- */
+        let audioCtx = null;
+        function audio() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                if (!audioCtx) audioCtx = new AC();
+                if (audioCtx.state === "suspended") audioCtx.resume();
+                return audioCtx;
+            } catch (e) { return null; }
+        }
+        function blip(freq, dur, vol, type, delay) {
+            if (SAVE.muted) return;
+            try {
+                const ac = audio(); if (!ac) return;
+                const t = ac.currentTime + (delay || 0);
+                const osc = ac.createOscillator(), g = ac.createGain();
+                osc.type = type || "triangle";
+                osc.frequency.value = freq;
+                g.gain.setValueAtTime(vol, t);
+                g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                osc.connect(g); g.connect(ac.destination);
+                osc.start(t); osc.stop(t + dur + 0.02);
+            } catch (e) { /* never break the game */ }
+        }
+        function noise(dur, vol, freq) {
+            if (SAVE.muted) return;
+            try {
+                const ac = audio(); if (!ac) return;
+                const t = ac.currentTime;
+                const len = Math.floor(ac.sampleRate * dur);
+                const buf = ac.createBuffer(1, len, ac.sampleRate);
+                const data = buf.getChannelData(0);
+                for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+                const src = ac.createBufferSource(); src.buffer = buf;
+                const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = freq || 900;
+                const g = ac.createGain(); g.gain.value = vol;
+                src.connect(f); f.connect(g); g.connect(ac.destination);
+                src.start(t);
+            } catch (e) { /* ok */ }
+        }
+        const sndTick    = f => blip(f, 0.06, 0.05);
+        const sndWhoosh  = () => noise(0.18, 0.12, 500);
+        const sndThwack  = () => { noise(0.1, 0.3, 700); blip(90, 0.16, 0.2, "sine"); };
+        const sndCombo   = n => { blip(440 + n * 120, 0.1, 0.08, "triangle"); blip(660 + n * 120, 0.12, 0.06, "triangle", 0.06); };
+        const sndBoing   = () => { blip(180, 0.22, 0.12, "sine"); blip(340, 0.18, 0.08, "sine", 0.05); };
+        const sndBounce  = v => blip(120 + v * 6, 0.1, 0.07, "sine");
+        const sndPop     = () => blip(600, 0.07, 0.1, "square");
+        const sndCoin    = () => { blip(988, 0.06, 0.06); blip(1319, 0.1, 0.06, "triangle", 0.05); };
+        const sndRocket  = () => noise(0.35, 0.16, 1400);
+        const sndSplat   = () => noise(0.12, 0.2, 300);
+        const sndBuy     = () => { blip(660, 0.08, 0.08); blip(880, 0.12, 0.08, "triangle", 0.06); };
+        const sndFanfare = () => [523, 659, 784, 1047].forEach((f, i) => blip(f, 0.24, 0.1, "triangle", i * 0.11));
+        const sndWeak    = () => { blip(300, 0.16, 0.09, "sawtooth", 0.04); blip(216, 0.28, 0.09, "sawtooth", 0.22); };
+
+        function sndWeaponHit(w, quality) {
+            if (w === "bat")        { noise(0.06, 0.26, 3000); blip(210, 0.12, 0.15, "square"); }
+            else if (w === "golf")  { blip(1250, 0.09, 0.13, "triangle"); noise(0.04, 0.12, 4200); }
+            else if (w === "pan")   { blip(311, 0.5, 0.14, "square"); blip(466, 0.42, 0.08, "square", 0.01); blip(305, 0.55, 0.06, "sine", 0.02); }
+            else if (w === "sword") { noise(0.14, 0.22, 5200); blip(920, 0.1, 0.07, "sawtooth", 0.03); }
+            else                    { sndThwack(); }
+            if (quality === "crit") { blip(55, 0.35, 0.25, "sine"); blip(1568, 0.22, 0.1, "triangle", 0.06); }
+        }
+
+        /* ---------- Rendering ---------- */
+        function draw(nowMs) {
+            const now = nowMs / 1000;
+            PAL = biomePalette(blob.x);
+            ctx.clearRect(0, 0, cssW, cssH);
+            ctx.save();
+            if (shake > 0) ctx.translate(rand(-shake, shake) * 0.5, rand(-shake, shake) * 0.5);
+
+            drawSky(now);
+            drawGround();
+            drawObjects(now);
+            drawMarkers();
+            drawBestFlag(now);
+            if (phase <= PHASE.SWING) drawTeeAndMallet(now);
+            drawBlob(now);
+            drawFx();
+            if (phase <= PHASE.CONTACT) drawAimUI(now);
+
+            ctx.restore();
+
+            // altitude readout when the ground is far below
+            if (camY > 3) {
+                const sx = clamp(W2SX(blob.x), 70, cssW - 70);
+                ctx.font = "700 12px Silkscreen, monospace";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+                const label = "▲ " + Math.floor(blob.y) + "m";
+                const w = ctx.measureText(label).width + 18;
+                ctx.beginPath();
+                ctx.roundRect(sx - w / 2, 12, w, 24, 8);
+                ctx.fill();
+                ctx.fillStyle = "#e2e8f0";
+                ctx.fillText(label, sx, 29);
+            }
+
+            // impact flash
+            const flashRem = flashEnd - nowMs;
+            if (flashRem > 0) {
+                ctx.fillStyle = "rgba(255, 255, 255, " + (flashPeak * flashRem / flashDur).toFixed(3) + ")";
+                ctx.fillRect(0, 0, cssW, cssH);
+            }
+            requestAnimationFrame(draw);
+        }
+
+        /* ---------- Biomes: scenery evolves with distance ---------- */
+        const BIOMES = [
+            { at: 0,   skyTop: "#0b1020", skyBot: "#1e293b", ground: "#243244", line: "#a3e635", hill: "#1e293b" }, // twilight meadow
+            { at: 300, skyTop: "#231133", skyBot: "#7c2d12", ground: "#3b2a1c", line: "#fb923c", hill: "#431407" }, // sunset dunes
+            { at: 700, skyTop: "#010409", skyBot: "#1e1b4b", ground: "#171332", line: "#22d3ee", hill: "#0f172a" }  // the cosmic reaches
+        ];
+
+        function mixC(h1, h2, t) {
+            const a = parseInt(h1.slice(1), 16), b = parseInt(h2.slice(1), 16);
+            return Math.round(((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t) + "," +
+                   Math.round(((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t) + "," +
+                   Math.round((a & 255) * (1 - t) + (b & 255) * t);
+        }
+
+        let PAL = null;
+        function biomePalette(x) {
+            let i = 0;
+            while (i < BIOMES.length - 1 && x >= BIOMES[i + 1].at) i++;
+            const cur = BIOMES[i], nxt = BIOMES[Math.min(i + 1, BIOMES.length - 1)];
+            const t = cur === nxt ? 0 : clamp((x - (nxt.at - 80)) / 80, 0, 1); // blend over the last 80m
+            const pal = {};
+            for (const k of ["skyTop", "skyBot", "ground", "line", "hill"]) pal[k] = mixC(cur[k], nxt[k], t);
+            return pal;
+        }
+
+        function drawSky(now) {
+            const grd = ctx.createLinearGradient(0, 0, 0, cssH);
+            grd.addColorStop(0, "rgb(" + PAL.skyTop + ")");
+            grd.addColorStop(1, "rgb(" + PAL.skyBot + ")");
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, cssW, cssH);
+            // stars (parallax slow)
+            ctx.fillStyle = "rgba(226, 232, 240, 0.5)";
+            for (let i = 0; i < 40; i++) {
+                const sx = ((i * 137.5 - camX * M2P * 0.15) % (cssW + 40) + cssW + 40) % (cssW + 40) - 20;
+                const sy = ((i * 71.3 + camY * M2P * 0.1) % (cssH * 0.7));
+                ctx.fillRect(sx, sy, 2, 2);
+            }
+            // clouds (parallax)
+            ctx.fillStyle = "rgba(51, 65, 85, 0.55)";
+            for (let i = 0; i < 6; i++) {
+                const cx0 = ((i * 331 - camX * M2P * 0.4) % (cssW + 240) + cssW + 240) % (cssW + 240) - 120;
+                const cy0 = 40 + (i * 67) % Math.max(60, cssH * 0.45) + camY * M2P * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(cx0, cy0, 55, 16, 0, 0, Math.PI * 2);
+                ctx.ellipse(cx0 + 35, cy0 - 10, 35, 13, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // far hills
+            ctx.fillStyle = "rgba(" + PAL.hill + ", 0.9)";
+            ctx.beginPath();
+            ctx.moveTo(0, groundY + camY * M2P);
+            for (let px = 0; px <= cssW; px += 8) {
+                const wx = px / M2P + camX;
+                const h = 26 + Math.sin(wx * 0.06) * 14 + Math.sin(wx * 0.021 + 3) * 20;
+                ctx.lineTo(px, groundY + camY * M2P - h * M2P * 0.22);
+            }
+            ctx.lineTo(cssW, cssH); ctx.lineTo(0, cssH);
+            ctx.fill();
+        }
+
+        function drawGround() {
+            const gy = W2SY(0);
+            if (gy > cssH + 20) return;
+            ctx.fillStyle = "rgb(" + PAL.ground + ")";
+            ctx.fillRect(0, gy, cssW, cssH - gy + 20);
+            ctx.strokeStyle = "rgba(" + PAL.line + ", 0.5)";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(cssW, gy); ctx.stroke();
+            // grass ticks
+            ctx.strokeStyle = "rgba(" + PAL.line + ", 0.25)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let px = -((camX * M2P) % 18); px < cssW; px += 18) {
+                ctx.moveTo(px, gy); ctx.lineTo(px + 3, gy - 5);
+            }
+            ctx.stroke();
+        }
+
+        function drawMarkers() {
+            const gy = W2SY(0);
+            if (gy > cssH + 20) return;
+            const start = Math.floor(camX / 50) * 50;
+            ctx.font = "700 11px Silkscreen, monospace";
+            ctx.textAlign = "center";
+            for (let m = Math.max(50, start); m < camX + cssW / M2P + 50; m += 50) {
+                const sx = W2SX(m + TEE_X);
+                ctx.strokeStyle = "rgba(148, 163, 184, 0.6)";
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(sx, gy); ctx.lineTo(sx, gy - 26); ctx.stroke();
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText(m + "m", sx, gy - 32);
+            }
+        }
+
+        // A golden flag planted at your record — every run races it
+        function drawBestFlag(now) {
+            if (SAVE.best <= 10) return;
+            const wx = TEE_X + SAVE.best;
+            const sx = W2SX(wx);
+            if (sx < -60 || sx > cssW + 60) return;
+            const gy = W2SY(0);
+            if (gy > cssH + 20) return;
+            const h = 3.2 * M2P;
+            ctx.strokeStyle = "#fbbf24";
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(sx, gy); ctx.lineTo(sx, gy - h); ctx.stroke();
+            // waving pennant
+            const wave = Math.sin(now * 4) * 0.15;
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.moveTo(sx, gy - h);
+            ctx.quadraticCurveTo(sx + 0.8 * M2P, gy - h + (0.25 + wave) * M2P, sx + 1.5 * M2P, gy - h + (0.45 + wave) * M2P);
+            ctx.lineTo(sx, gy - h + 0.9 * M2P);
+            ctx.closePath();
+            ctx.fill();
+            ctx.font = "700 11px Silkscreen, monospace";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillText("BEST " + SAVE.best + "m", sx, gy - h - 8);
+        }
+
+        function drawObjects(now) {
+            for (const o of objects) {
+                if (o.used && o.type !== "tramp" && o.type !== "glue") continue;
+                const sx = W2SX(o.x);
+                if (sx < -80 || sx > cssW + 80) continue;
+                const gy = W2SY(0);
+                if (o.type === "tramp") {
+                    const w = o.r * 2 * M2P;
+                    ctx.fillStyle = "#0e7490";
+                    ctx.fillRect(sx - w / 2, gy - 8, 5, 8);
+                    ctx.fillRect(sx + w / 2 - 5, gy - 8, 5, 8);
+                    ctx.fillStyle = "#22d3ee";
+                    ctx.beginPath();
+                    ctx.ellipse(sx, gy - 9, w / 2, 5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (o.type === "mushroom") {
+                    ctx.fillStyle = "#e2e8f0";
+                    ctx.fillRect(sx - 3, gy - 12, 6, 12);
+                    ctx.fillStyle = "#f472b6";
+                    ctx.beginPath(); ctx.arc(sx, gy - 12, 12, Math.PI, 0); ctx.fill();
+                    ctx.fillStyle = "#fdf2f8";
+                    ctx.beginPath(); ctx.arc(sx - 4, gy - 17, 2.4, 0, Math.PI * 2); ctx.arc(sx + 5, gy - 15, 2, 0, Math.PI * 2); ctx.fill();
+                } else if (o.type === "balloon") {
+                    const sy = W2SY(o.y);
+                    ctx.strokeStyle = "rgba(226,232,240,0.5)";
+                    ctx.beginPath(); ctx.moveTo(sx, sy + 10); ctx.lineTo(sx, sy + 26); ctx.stroke();
+                    ctx.fillStyle = "#f472b6";
+                    ctx.beginPath(); ctx.ellipse(sx, sy, 11, 13, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = "rgba(255,255,255,0.5)";
+                    ctx.beginPath(); ctx.arc(sx - 4, sy - 5, 3, 0, Math.PI * 2); ctx.fill();
+                } else if (o.type === "rocket") {
+                    const sy = W2SY(o.y);
+                    ctx.save();
+                    ctx.translate(sx, sy);
+                    ctx.fillStyle = "#fb923c";
+                    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -7); ctx.lineTo(-8, 7); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = "#fde047";
+                    const fl = 6 + Math.sin(now * 30) * 3;
+                    ctx.beginPath(); ctx.moveTo(-8, -4); ctx.lineTo(-8 - fl, 0); ctx.lineTo(-8, 4); ctx.closePath(); ctx.fill();
+                    ctx.restore();
+                } else if (o.type === "glue") {
+                    const w = o.r * 2.4 * M2P;
+                    ctx.fillStyle = "rgba(167, 139, 250, 0.75)";
+                    ctx.beginPath(); ctx.ellipse(sx, gy - 2, w / 2, 5, 0, 0, Math.PI * 2); ctx.fill();
+                } else if (o.type === "cactus") {
+                    ctx.fillStyle = "#4ade80";
+                    ctx.fillRect(sx - 4, gy - 24, 8, 24);
+                    ctx.fillRect(sx - 13, gy - 18, 8, 5);
+                    ctx.fillRect(sx - 13, gy - 24, 5, 10);
+                    ctx.fillRect(sx + 5, gy - 14, 8, 5);
+                    ctx.fillRect(sx + 8, gy - 21, 5, 10);
+                    ctx.strokeStyle = "#166534";
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 4; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx - 3 + i * 2, gy - 20 + i * 4);
+                        ctx.lineTo(sx - 6 + i * 3, gy - 22 + i * 4);
+                        ctx.stroke();
+                    }
+                } else if (o.type === "coin") {
+                    const sy = W2SY(o.y);
+                    ctx.fillStyle = "#fbbf24";
+                    ctx.beginPath(); ctx.arc(sx, sy, 6 + Math.sin(now * 5 + o.x) * 1, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = "#fde68a";
+                    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
+
+        function weaponAngle(now) {
+            const REST = -2.4, BACK = -3.0, HIT = -0.18;
+            if (phase !== PHASE.SWING) return REST + Math.sin(now * 1.2) * 0.05;
+            const k = Math.min(swingT, 1);
+            if (k < 0.3) {                      // anticipation: pull back
+                const t = k / 0.3;
+                return REST + (BACK - REST) * (1 - (1 - t) * (1 - t));
+            }
+            const t = (k - 0.3) / 0.7;          // the whip
+            return BACK + (HIT - BACK) * t * t * t;
+        }
+
+        function drawWeaponShape(type) {
+            // drawn along +x from the pivot (handle at 0, business end ~2m out)
+            if (type === "bat") {
+                ctx.fillStyle = "#d97706";
+                ctx.strokeStyle = "#92400e";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0.15 * M2P, -0.07 * M2P);
+                ctx.lineTo(1.7 * M2P, -0.17 * M2P);
+                ctx.arc(1.78 * M2P, 0, 0.19 * M2P, -Math.PI / 2, Math.PI / 2);
+                ctx.lineTo(0.15 * M2P, 0.07 * M2P);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#78350f";      // grip tape
+                ctx.fillRect(0.1 * M2P, -0.09 * M2P, 0.35 * M2P, 0.18 * M2P);
+            } else if (type === "golf") {
+                ctx.strokeStyle = "#94a3b8";
+                ctx.lineWidth = 3.5;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(2.0 * M2P, 0); ctx.stroke();
+                ctx.fillStyle = "#cbd5e1";
+                ctx.strokeStyle = "#64748b";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(1.9 * M2P, -0.1 * M2P, 0.5 * M2P, 0.28 * M2P, 5);
+                ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#1e293b";      // grip
+                ctx.fillRect(0, -0.05 * M2P, 0.4 * M2P, 0.1 * M2P);
+            } else if (type === "pan") {
+                ctx.strokeStyle = "#334155";
+                ctx.lineWidth = 6;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1.35 * M2P, 0); ctx.stroke();
+                ctx.fillStyle = "#1f2937";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(1.85 * M2P, 0, 0.52 * M2P, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "rgba(226, 232, 240, 0.25)";
+                ctx.beginPath(); ctx.ellipse(1.75 * M2P, -0.12 * M2P, 0.2 * M2P, 0.1 * M2P, -0.4, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (type === "sword") {
+                ctx.fillStyle = "#7f1d1d";      // grip
+                ctx.fillRect(0, -0.06 * M2P, 0.42 * M2P, 0.12 * M2P);
+                ctx.fillStyle = "#fbbf24";      // crossguard + pommel
+                ctx.fillRect(0.42 * M2P, -0.2 * M2P, 0.1 * M2P, 0.4 * M2P);
+                ctx.beginPath(); ctx.arc(-0.03 * M2P, 0, 0.08 * M2P, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#e2e8f0";      // blade
+                ctx.strokeStyle = "#94a3b8";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0.52 * M2P, -0.09 * M2P);
+                ctx.lineTo(2.05 * M2P, -0.09 * M2P);
+                ctx.lineTo(2.3 * M2P, 0);
+                ctx.lineTo(2.05 * M2P, 0.09 * M2P);
+                ctx.lineTo(0.52 * M2P, 0.09 * M2P);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = "#cbd5e1";    // fuller line
+                ctx.beginPath(); ctx.moveTo(0.6 * M2P, 0); ctx.lineTo(2.0 * M2P, 0); ctx.stroke();
+            } else {
+                // trusty mallet
+                ctx.strokeStyle = "#b45309";
+                ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(1.9 * M2P, 0); ctx.stroke();
+                ctx.fillStyle = "#e2e8f0";
+                ctx.strokeStyle = "#94a3b8";
+                ctx.lineWidth = 2;
+                const hw = 0.55 * M2P, hh = 0.38 * M2P;
+                ctx.beginPath();
+                ctx.roundRect(1.9 * M2P - hw / 2, -hh, hw, hh * 2, 4);
+                ctx.fill(); ctx.stroke();
+            }
+        }
+
+        function drawTeeAndMallet(now) {
+            const gy = W2SY(0);
+            const bx = W2SX(TEE_X);
+            // tee
+            ctx.fillStyle = "#475569";
+            ctx.fillRect(bx - 10, gy - 6, 20, 6);
+
+            const type = SAVE.eq.weapon;
+            const a = weaponAngle(now);
+            const px = bx - 2.1 * M2P, py = gy - 0.4 * M2P;
+            const whipping = phase === PHASE.SWING && swingT > 0.3;
+
+            // motion-blur ghosts during the whip
+            if (whipping) {
+                for (let g = 1; g <= 3; g++) {
+                    ctx.save();
+                    ctx.translate(px, py);
+                    ctx.rotate(a - g * 0.22);
+                    ctx.globalAlpha = 0.14 - g * 0.035;
+                    drawWeaponShape(type);
+                    ctx.restore();
+                }
+                ctx.globalAlpha = 1;
+            }
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(a);
+            drawWeaponShape(type);
+            ctx.restore();
+        }
+
+        /* ---------- The blob ---------- */
+        function shade(hex, f) {
+            const n = parseInt(hex.slice(1), 16);
+            return "rgb(" + Math.round(((n >> 16) & 255) * f) + "," +
+                            Math.round(((n >> 8) & 255) * f) + "," +
+                            Math.round((n & 255) * f) + ")";
+        }
+
+        // Smooth closed curve through the jelly ring's deformed points
+        function blobPath(r) {
+            const pts = [];
+            for (let i = 0; i < JN; i++) {
+                const a = (i / JN) * Math.PI * 2;
+                const rr = r * (1 + jellyOff[i]);
+                pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+            }
+            ctx.beginPath();
+            let mx = (pts[JN - 1][0] + pts[0][0]) / 2, my = (pts[JN - 1][1] + pts[0][1]) / 2;
+            ctx.moveTo(mx, my);
+            for (let i = 0; i < JN; i++) {
+                const p = pts[i], q = pts[(i + 1) % JN];
+                ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+            }
+            ctx.closePath();
+        }
+
+        function drawArms(now, r, col) {
+            const flying = phase === PHASE.FLIGHT && !blob.rolling;
+            ctx.strokeStyle = shade(col, 0.75);
+            ctx.lineWidth = r * 0.26;
+            ctx.lineCap = "round";
+            for (const s of [-1, 1]) {
+                let ang;
+                if (blob.face === "ouch") {
+                    ang = -0.15 + Math.sin(armPhase * 9 + s) * 0.12;        // rigid, trembling
+                } else if (flying) {
+                    ang = armPhase * 2.2 * s;                               // windmill panic-joy
+                } else {
+                    ang = 0.9 + Math.sin(now * 1.8 + s * 1.4) * 0.22;       // relaxed sway
+                }
+                const shX = s * r * (1 + jellyOff[s > 0 ? 0 : JN / 2]) * 0.82;
+                const len = r * 0.55;
+                ctx.beginPath();
+                ctx.moveTo(shX, r * 0.05);
+                ctx.lineTo(shX + Math.cos(ang) * len * s, r * 0.05 + Math.sin(ang) * len);
+                ctx.stroke();
+            }
+        }
+
+        function drawBlob(now) {
+            const sx = W2SX(blob.x), sy = W2SY(blob.y);
+            const r = BLOB_R * M2P;
+            const speed = Math.hypot(blob.vx, blob.vy);
+
+            let tilt = 0, stretch = 0;
+            if (phase === PHASE.FLIGHT && !blob.rolling && speed > 6) {
+                stretch = clamp(speed / 55, 0, 0.16);
+                tilt = Math.atan2(-blob.vy, blob.vx);
+            }
+            if (blob.rolling) tilt = blob.rot;
+
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(tilt);
+            ctx.scale(1 + stretch, 1 - stretch * 0.6);
+
+            const col = bodyColor();
+            drawArms(now, r, col);
+
+            // jelly body
+            ctx.fillStyle = col;
+            blobPath(r);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(15, 23, 42, 0.5)";
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            // glossy highlight
+            ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+            ctx.beginPath();
+            ctx.ellipse(-r * 0.35, -r * 0.42, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // un-rotate for face (faces look better upright-ish)
+            ctx.rotate(-tilt * 0.7);
+            drawFace(now, r);
+            drawCosmetics(now, r);
+            ctx.restore();
+        }
+
+        function drawFace(now, r) {
+            const f = blob.face;
+            ctx.strokeStyle = "#0f172a";
+            ctx.fillStyle = "#0f172a";
+            ctx.lineWidth = Math.max(2, r * 0.09);
+            ctx.lineCap = "round";
+            const ex = r * 0.34, ey = -r * 0.15, er = r * 0.13;
+
+            if (f === "ouch") {
+                // X X eyes
+                for (const s of [-1, 1]) {
+                    ctx.beginPath();
+                    ctx.moveTo(s * ex - er, ey - er); ctx.lineTo(s * ex + er, ey + er);
+                    ctx.moveTo(s * ex + er, ey - er); ctx.lineTo(s * ex - er, ey + er);
+                    ctx.stroke();
+                }
+                // wavy shocked mouth
+                ctx.beginPath();
+                ctx.ellipse(0, r * 0.34, r * 0.2, r * 0.26, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (f === "joy") {
+                // closed happy arcs ∪ ∪ + huge open smile
+                for (const s of [-1, 1]) {
+                    ctx.beginPath();
+                    ctx.arc(s * ex, ey, er * 1.15, Math.PI * 1.05, Math.PI * 1.95);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.arc(0, r * 0.18, r * 0.42, 0.15, Math.PI - 0.15);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#f472b6"; // tongue
+                ctx.beginPath();
+                ctx.arc(0, r * 0.42, r * 0.16, 0, Math.PI);
+                ctx.fill();
+                ctx.fillStyle = "#0f172a";
+            } else if (f === "braced") {
+                // > < gleeful bracing
+                for (const s of [-1, 1]) {
+                    ctx.beginPath();
+                    ctx.moveTo(s * ex - s * er, ey - er);
+                    ctx.lineTo(s * ex + s * er * 0.6, ey);
+                    ctx.lineTo(s * ex - s * er, ey + er);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.arc(0, r * 0.25, r * 0.28, 0.2, Math.PI - 0.2);
+                ctx.stroke();
+            } else if (f === "splat") {
+                // dizzy-happy swirls
+                for (const s of [-1, 1]) {
+                    ctx.beginPath();
+                    ctx.arc(s * ex, ey, er, 0, Math.PI * 1.5);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.arc(0, r * 0.25, r * 0.24, 0.3, Math.PI - 0.3);
+                ctx.stroke();
+            } else {
+                // idle: blink + soft smile
+                const blink = (now % 3.4) < 0.12;
+                for (const s of [-1, 1]) {
+                    if (blink) {
+                        ctx.beginPath();
+                        ctx.moveTo(s * ex - er, ey); ctx.lineTo(s * ex + er, ey);
+                        ctx.stroke();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(s * ex, ey, er, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.beginPath();
+                ctx.arc(0, r * 0.22, r * 0.26, 0.25, Math.PI - 0.25);
+                ctx.stroke();
+            }
+        }
+
+        function drawCosmetics(now, r) {
+            const hat = SAVE.eq.hat, gl = SAVE.eq.glasses, nk = SAVE.eq.neck;
+            ctx.lineWidth = Math.max(2, r * 0.07);
+
+            // glasses sit over the eyes
+            const ex = r * 0.34, ey = -r * 0.15;
+            if (gl === "round") {
+                ctx.strokeStyle = "#e2e8f0";
+                for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * ex, ey, r * 0.22, 0, Math.PI * 2); ctx.stroke(); }
+                ctx.beginPath(); ctx.moveTo(-ex + r * 0.22, ey); ctx.lineTo(ex - r * 0.22, ey); ctx.stroke();
+            } else if (gl === "shades") {
+                ctx.fillStyle = "#0f172a";
+                for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * ex, ey, r * 0.24, 0, Math.PI * 2); ctx.fill(); }
+                ctx.strokeStyle = "#0f172a";
+                ctx.beginPath(); ctx.moveTo(-ex, ey); ctx.lineTo(ex, ey); ctx.stroke();
+                ctx.fillStyle = "rgba(255,255,255,0.45)";
+                ctx.beginPath(); ctx.arc(-ex - r * 0.07, ey - r * 0.07, r * 0.06, 0, Math.PI * 2); ctx.fill();
+            } else if (gl === "stars") {
+                ctx.fillStyle = "#fde047";
+                for (const s of [-1, 1]) drawStar(s * ex, ey, r * 0.28, r * 0.13, 5);
+                ctx.strokeStyle = "#fde047";
+                ctx.beginPath(); ctx.moveTo(-ex + r * 0.2, ey); ctx.lineTo(ex - r * 0.2, ey); ctx.stroke();
+            }
+
+            // hats sit on top, bobbing with the jelly surface
+            ctx.save();
+            ctx.translate(0, -r * jellyOff[(JN * 3 / 4) | 0]);
+            if (hat === "beanie") {
+                ctx.fillStyle = "#f472b6";
+                ctx.beginPath(); ctx.arc(0, -r * 0.62, r * 0.62, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = "#be185d";
+                ctx.fillRect(-r * 0.62, -r * 0.72, r * 1.24, r * 0.16);
+                ctx.fillStyle = "#fdf2f8";
+                ctx.beginPath(); ctx.arc(0, -r * 1.24, r * 0.14, 0, Math.PI * 2); ctx.fill();
+            } else if (hat === "propeller") {
+                ctx.fillStyle = "#60a5fa";
+                ctx.beginPath(); ctx.arc(0, -r * 0.62, r * 0.55, Math.PI, 0); ctx.fill();
+                ctx.strokeStyle = "#1d4ed8";
+                ctx.beginPath(); ctx.moveTo(0, -r * 1.15); ctx.lineTo(0, -r * 1.32); ctx.stroke();
+                const spin = phase === PHASE.FLIGHT ? now * 25 : now * 3;
+                ctx.fillStyle = "#fde047";
+                ctx.save();
+                ctx.translate(0, -r * 1.34);
+                ctx.scale(Math.abs(Math.cos(spin)) * 0.9 + 0.1, 1);
+                ctx.beginPath(); ctx.ellipse(0, 0, r * 0.5, r * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            } else if (hat === "tophat") {
+                ctx.fillStyle = "#0f172a";
+                ctx.fillRect(-r * 0.66, -r * 0.78, r * 1.32, r * 0.14);
+                ctx.fillRect(-r * 0.42, -r * 1.5, r * 0.84, r * 0.76);
+                ctx.fillStyle = "#ef4444";
+                ctx.fillRect(-r * 0.42, -r * 0.92, r * 0.84, r * 0.15);
+            } else if (hat === "crown") {
+                ctx.fillStyle = "#fbbf24";
+                ctx.beginPath();
+                ctx.moveTo(-r * 0.5, -r * 0.66);
+                ctx.lineTo(-r * 0.5, -r * 1.15);
+                ctx.lineTo(-r * 0.25, -r * 0.85);
+                ctx.lineTo(0, -r * 1.25);
+                ctx.lineTo(r * 0.25, -r * 0.85);
+                ctx.lineTo(r * 0.5, -r * 1.15);
+                ctx.lineTo(r * 0.5, -r * 0.66);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#ef4444";
+                ctx.beginPath(); ctx.arc(0, -r * 0.82, r * 0.08, 0, Math.PI * 2); ctx.fill();
+            }
+
+            ctx.restore();
+
+            // neck items sit at the bottom, riding the wobble
+            ctx.save();
+            ctx.translate(0, r * jellyOff[(JN / 4) | 0]);
+            if (nk === "scarf") {
+                ctx.strokeStyle = "#ef4444";
+                ctx.lineWidth = r * 0.22;
+                ctx.beginPath(); ctx.arc(0, r * 0.52, r * 0.62, 0.35, Math.PI - 0.35); ctx.stroke();
+                ctx.fillStyle = "#ef4444";
+                ctx.fillRect(r * 0.28, r * 0.62, r * 0.2, r * 0.5);
+            } else if (nk === "chain") {
+                ctx.strokeStyle = "#fbbf24";
+                ctx.lineWidth = r * 0.09;
+                ctx.beginPath(); ctx.arc(0, r * 0.42, r * 0.66, 0.3, Math.PI - 0.3); ctx.stroke();
+                ctx.fillStyle = "#fbbf24";
+                drawStar(0, r * 1.02, r * 0.16, r * 0.08, 5);
+            } else if (nk === "pearls") {
+                ctx.fillStyle = "#f8fafc";
+                for (let i = 0; i <= 6; i++) {
+                    const a = 0.35 + (Math.PI - 0.7) * (i / 6);
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(a) * r * 0.68, r * 0.42 + Math.sin(a) * r * 0.55, r * 0.09, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawStar(x, y, ro, ri, n) {
+            ctx.beginPath();
+            for (let i = 0; i < n * 2; i++) {
+                const rr = i % 2 === 0 ? ro : ri;
+                const a = (i / (n * 2)) * Math.PI * 2 - Math.PI / 2;
+                ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawFx() {
+            for (const p of particles) {
+                const sx = W2SX(p.x), sy = W2SY(p.y);
+                const a = clamp(p.t / 0.5, 0, 1);
+                ctx.globalAlpha = a;
+                if (p.kind === "heart") {
+                    ctx.fillStyle = p.color;
+                    ctx.font = "12px sans-serif";
+                    ctx.fillText("❤", sx, sy);
+                } else if (p.kind === "star") {
+                    ctx.fillStyle = p.color;
+                    drawStar(sx, sy, 5, 2.4, 5);
+                } else if (p.kind === "confetti") {
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(sx, sy, 4, 4);
+                } else {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1;
+
+            // speech bubbles
+            ctx.font = "700 12px Silkscreen, monospace";
+            ctx.textAlign = "center";
+            for (const b of bubbles) {
+                const sx = clamp(W2SX(b.x), 60, cssW - 60);
+                const sy = clamp(W2SY(b.y) - 40 - (1.4 - b.t) * 18, 24, cssH - 20);
+                const w = ctx.measureText(b.text).width + 16;
+                ctx.globalAlpha = clamp(b.t / 0.4, 0, 1);
+                ctx.fillStyle = "#f8fafc";
+                ctx.beginPath();
+                ctx.roundRect(sx - w / 2, sy - 16, w, 22, 8);
+                ctx.fill();
+                ctx.fillStyle = "#0f172a";
+                ctx.fillText(b.text, sx, sy);
+                ctx.globalAlpha = 1;
+            }
+            // impact shockwave rings
+            for (const rg of rings) {
+                if (rg.t < 0) continue;
+                const k = rg.t / 0.55;
+                ctx.globalAlpha = 0.8 * (1 - k);
+                ctx.strokeStyle = rg.color;
+                ctx.lineWidth = 4 * (1 - k) + 1;
+                ctx.beginPath();
+                ctx.arc(W2SX(rg.x), W2SY(rg.y), (0.4 + (1 - (1 - k) * (1 - k)) * rg.max) * M2P, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            for (const p of popups) {
+                ctx.globalAlpha = clamp(p.t / 0.5, 0, 1);
+                ctx.fillStyle = p.color;
+                ctx.font = "700 " + (p.size || 20) + "px Silkscreen, monospace";
+                ctx.fillText(p.text, W2SX(p.x), W2SY(p.y) - (1.1 - p.t) * 30);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        /* ---------- Aim UI ---------- */
+        function drawAimUI(now) {
+            const bx = W2SX(blob.x), by = W2SY(blob.y);
+            const r = BLOB_R * M2P;
+
+            // Blob Scope: faint predicted arc (ignores spin and objects)
+            if (SAVE.up.scope > 0 && phase >= PHASE.POWER) {
+                const speed = maxSpeed() * (0.3 + 0.7 * aim.power);
+                const aRad = aim.angle * Math.PI / 180;
+                let px = blob.x, py = blob.y;
+                let vx = Math.cos(aRad) * speed, vy = Math.sin(aRad) * speed;
+                const drag = dragK();
+                const steps = Math.floor((0.5 + 0.5 * SAVE.up.scope) * 30);
+                ctx.fillStyle = "#f8fafc";
+                for (let i = 0; i < steps; i++) {
+                    const dt2 = 1 / 30;
+                    vy -= G * dt2;
+                    vx -= vx * drag * dt2; vy -= vy * drag * dt2;
+                    px += vx * dt2; py += vy * dt2;
+                    if (py < BLOB_R) break;
+                    if (i % 2 === 0) {
+                        ctx.globalAlpha = 0.45 * (1 - i / steps);
+                        ctx.beginPath();
+                        ctx.arc(W2SX(px), W2SY(py), 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // angle arrow (always visible while aiming)
+            const aRad = aim.angle * Math.PI / 180;
+            const len = 46 + (phase === PHASE.POWER || phase === PHASE.CONTACT ? aim.power * 38 : 20);
+            ctx.save();
+            ctx.translate(bx, by);
+            ctx.rotate(-aRad);
+            const active = phase === PHASE.ANGLE;
+            ctx.strokeStyle = active ? "#a3e635" : "rgba(163, 230, 53, 0.45)";
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(r + 6, 0); ctx.lineTo(r + len, 0); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(r + len + 12, 0); ctx.lineTo(r + len, -7); ctx.lineTo(r + len, 7);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+
+            // labels
+            ctx.font = "700 11px Silkscreen, monospace";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#94a3b8";
+            const label = phase === PHASE.ANGLE ? "CLICK TO SET ANGLE"
+                        : phase === PHASE.POWER ? "CLICK TO SET POWER"
+                        : "CLICK TO PICK THE HIT!";
+            ctx.fillText(label, 16, 24);
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillText("ANGLE " + Math.round(aim.angle) + "°", 16, 42);
+            if (phase >= PHASE.POWER) ctx.fillText("POWER " + Math.round(aim.power * 100) + "%", 16, 58);
+
+            // power meter
+            if (phase === PHASE.POWER) {
+                const mh = 110, mw = 14;
+                const mx = bx + r + 30, my = by - mh / 2;
+                ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.roundRect(mx, my, mw, mh, 4); ctx.fill(); ctx.stroke();
+                const ph = mh * aim.power;
+                const grd = ctx.createLinearGradient(0, my + mh, 0, my);
+                grd.addColorStop(0, "#4ade80"); grd.addColorStop(0.6, "#fde047"); grd.addColorStop(1, "#ef4444");
+                ctx.fillStyle = grd;
+                ctx.beginPath(); ctx.roundRect(mx + 2, my + mh - ph + 1, mw - 4, Math.max(2, ph - 2), 3); ctx.fill();
+            }
+
+            // contact sweep
+            if (phase === PHASE.CONTACT) {
+                const m = contactMarker();           // -1..1, + = top
+                const sweet = sweetHalf();
+                // sweet zone band
+                ctx.fillStyle = "rgba(253, 224, 71, 0.22)";
+                ctx.fillRect(bx - r - 16, by - sweet * r, (r + 16) * 2, sweet * 2 * r);
+                ctx.strokeStyle = "rgba(253, 224, 71, 0.8)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(bx - r - 16, by - sweet * r, (r + 16) * 2, sweet * 2 * r);
+                // marker line
+                const myy = by - m * r;
+                ctx.strokeStyle = "#f8fafc";
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(bx - r - 20, myy); ctx.lineTo(bx + r + 20, myy); ctx.stroke();
+                // hints
+                ctx.font = "700 9px Silkscreen, monospace";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText("HIGH = FLAT + ROLL", bx + r + 26, by - r * 0.7);
+                ctx.fillStyle = "#fde047";
+                ctx.fillText("CENTER = CRIT!", bx + r + 26, by + 4);
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText("LOW = HIGH ARC", bx + r + 26, by + r * 0.8);
+            }
+        }
+
+        /* ---------- Shop ---------- */
+        const shopOverlay = document.getElementById("shopOverlay");
+        const shopBody = document.getElementById("shopBody");
+        let shopTab = "up";
+
+        function openShop() {
+            shopTab = shopTab || "up";
+            renderShop();
+            shopOverlay.classList.add("show");
+        }
+        function renderShop() {
+            document.getElementById("shopCoins").textContent = SAVE.coins + " c";
+            document.getElementById("tabUpgrades").classList.toggle("active", shopTab === "up");
+            document.getElementById("tabWardrobe").classList.toggle("active", shopTab === "ward");
+            shopBody.innerHTML = "";
+            if (shopTab === "up") renderUpgrades();
+            else renderWardrobe();
+        }
+
+        function renderUpgrades() {
+            for (const key of Object.keys(UPGRADES)) {
+                const u = UPGRADES[key];
+                const lvl = SAVE.up[key];
+                const row = document.createElement("div");
+                row.className = "shoprow";
+                const info = document.createElement("div");
+                info.className = "info";
+                const pips = Array.from({ length: u.max }, (_, i) =>
+                    `<span class="pip${i < lvl ? " on" : ""}"></span>`).join("");
+                info.innerHTML = `<div class="name"></div><div class="desc"></div><div class="pips">${pips}</div>`;
+                info.querySelector(".name").textContent = u.name;
+                info.querySelector(".desc").textContent = u.desc;
+                const btn = document.createElement("button");
+                if (lvl >= u.max) {
+                    btn.textContent = "MAX";
+                    btn.disabled = true;
+                    btn.className = "max";
+                } else {
+                    const cost = upgradeCost(key);
+                    btn.textContent = cost + " c";
+                    btn.disabled = SAVE.coins < cost;
+                    btn.addEventListener("click", () => {
+                        if (SAVE.coins < cost) return;
+                        SAVE.coins -= cost;
+                        SAVE.up[key]++;
+                        if (key === "burp" && phase < PHASE.FLIGHT) burpCharges = SAVE.up.burp;
+                        save(); sndBuy(); updateHud(); renderShop();
+                    });
+                }
+                row.appendChild(info);
+                row.appendChild(btn);
+                shopBody.appendChild(row);
+            }
+        }
+
+        function renderWardrobe() {
+            const sections = [["weapon", "Weapons"], ["color", "Blob Color"], ["hat", "Hats"], ["glasses", "Glasses"], ["neck", "Necklaces"]];
+            for (const [cat, label] of sections) {
+                const h = document.createElement("div");
+                h.className = "wardsection";
+                h.textContent = label;
+                shopBody.appendChild(h);
+                const wrap = document.createElement("div");
+                wrap.className = "warditems";
+                for (const item of COSMETICS[cat]) {
+                    const owned = SAVE.owned[cat].includes(item.id);
+                    const equipped = SAVE.eq[cat] === item.id;
+                    const btn = document.createElement("button");
+                    btn.className = "warditem" + (equipped ? " equipped" : "");
+                    let inner = "";
+                    if (cat === "color") inner += `<span class="dot" style="background:${item.body}"></span>`;
+                    inner += `<span></span>`;
+                    if (!owned) inner += `<span class="price">${item.cost} c</span>`;
+                    else if (equipped) inner += `<span>✓</span>`;
+                    btn.innerHTML = inner;
+                    btn.querySelector("span:nth-child(" + (cat === "color" ? 2 : 1) + ")").textContent = item.name;
+                    if (!owned) btn.disabled = SAVE.coins < item.cost;
+                    btn.addEventListener("click", () => {
+                        if (!owned) {
+                            if (SAVE.coins < item.cost) return;
+                            SAVE.coins -= item.cost;
+                            SAVE.owned[cat].push(item.id);
+                            sndBuy();
+                        }
+                        SAVE.eq[cat] = item.id;
+                        save(); updateHud(); renderShop();
+                    });
+                    wrap.appendChild(btn);
+                }
+                shopBody.appendChild(wrap);
+            }
+        }
+
+        document.getElementById("muteBtn").addEventListener("click", () => {
+            SAVE.muted = !SAVE.muted;
+            save();
+            updateHud();
+        });
+        document.getElementById("shopBtn").addEventListener("click", openShop);
+        document.getElementById("resultsShopBtn").addEventListener("click", openShop);
+        document.getElementById("shopCloseBtn").addEventListener("click", () => shopOverlay.classList.remove("show"));
+        document.getElementById("tabUpgrades").addEventListener("click", () => { shopTab = "up"; renderShop(); });
+        document.getElementById("tabWardrobe").addEventListener("click", () => { shopTab = "ward"; renderShop(); });
+        document.getElementById("againBtn").addEventListener("click", resetRun);
+
+        /* ---------- Main loop ---------- */
+        let lastT = performance.now();
+        function tick(nowMs) {
+            const raw = Math.min((nowMs - lastT) / 1000, 0.05);
+            lastT = nowMs;
+            let dt = raw;
+            if (hitstopT > 0) { hitstopT -= raw; dt = 0; }          // impact freeze-frame
+            else if (slowmoT > 0) { slowmoT -= raw; dt = raw * 0.35; } // crit slow-mo
+            if (phase <= PHASE.SWING) stepAim(dt);
+            if (phase === PHASE.FLIGHT) {
+                stepFlight(dt);
+                document.getElementById("hudDist").textContent = Math.floor(dist) + "m";
+                if (SAVE.up.burp > 0) {
+                    document.getElementById("hudBoosts").textContent =
+                        "💨×" + burpCharges + (SAVE.up.slam > 0 ? "  ⬇" : "");
+                }
+            }
+            stepFx(dt);
+            requestAnimationFrame(tick);
+        }
+
+        /* ---------- Boot ---------- */
+        window.addEventListener("resize", layout);
+        layout();
+        resetRun();
+        requestAnimationFrame(tick);
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>
