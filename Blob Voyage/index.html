@@ -286,7 +286,7 @@
             sweet:  { name: "Sweet Spot",    desc: "Bigger crit zone, stronger crits",     max: 6,  base: 60,  growth: 1.8  },
             luck:   { name: "Lucky Skies",   desc: "Friendlier skies, fewer hazards",      max: 8,  base: 50,  growth: 1.75 },
             burp:   { name: "Rocket Burps",  desc: "+1 mid-air boost (click while flying)",max: 5,  base: 100, growth: 2.2  },
-            slam:   { name: "Slam Dive",     desc: "Dive with S/↓ — trampolines mega-bounce", max: 5, base: 80, growth: 2.0 },
+            slam:   { name: "Slam Dive",     desc: "+1 slam dive (S/↓) per launch — trampolines mega-bounce", max: 5, base: 80, growth: 2.0 },
             scope:  { name: "Blob Scope",    desc: "Preview your launch arc while aiming", max: 3,  base: 120, growth: 2.0 },
             piggy:  { name: "Piggy Bank",    desc: "+10% coins earned per level",          max: 8,  base: 45,  growth: 1.75 }
         };
@@ -421,7 +421,7 @@
         let swingT = 0;          // swing animation progress
         // flight bookkeeping
         let dist = 0, pickupCoins = 0, launchCrit = false;
-        let burpCharges = 0, stoppedT = 0, resultsShown = false;
+        let burpCharges = 0, slamCharges = 0, stoppedT = 0, resultsShown = false;
         let combo = 0, maxCombo = 0, comboCoins = 0;   // boost chains without touching ground
         let passedBest = false;                        // fanfare when overtaking the best flag
 
@@ -495,6 +495,7 @@
             dist = 0; pickupCoins = 0; launchCrit = false;
             combo = 0; maxCombo = 0; comboCoins = 0; passedBest = false;
             burpCharges = SAVE.up.burp;
+            slamCharges = SAVE.up.slam;
             stoppedT = 0; resultsShown = false;
             camX = 0; camY = 0;
             objects = []; spawnedUpTo = 12;
@@ -630,7 +631,7 @@
                     const mult = blob.slamming ? slamBounce() : 1;
                     jellyImpulse(Math.PI / 2, mult > 1 ? 12 : 8);
                     blob.vy = Math.max(Math.abs(blob.vy) * 0.9, 13) * mult;
-                    blob.vx *= 1.04;
+                    blob.vx = Math.max(blob.vx * 1.04, 1.5); // always exit forward — no bouncing in place forever
                     blob.y = BLOB_R + 1.0;
                     blob.slamming = false;
                     blob.rolling = false;
@@ -835,12 +836,14 @@
         });
 
         function doSlam() {
-            if (phase !== PHASE.FLIGHT || blob.rolling || blob.slamming || SAVE.up.slam < 1) return;
+            if (phase !== PHASE.FLIGHT || blob.rolling || blob.slamming || slamCharges < 1) return;
             if (blob.y < BLOB_R + 2) return;
+            slamCharges--;
             blob.slamming = true;
             blob.vy = Math.min(blob.vy, -26 - 3 * SAVE.up.slam);
             bubbles.push({ text: "SLAM!", t: 0.8, x: blob.x, y: blob.y });
             sndWhoosh();
+            updateHud();
         }
         window.addEventListener("keydown", e => {
             if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") { doSlam(); e.preventDefault(); }
@@ -919,7 +922,7 @@
             document.getElementById("hudDist").textContent = Math.floor(dist) + "m";
             const boosts = [];
             if (SAVE.up.burp > 0) boosts.push("💨×" + burpCharges);
-            if (SAVE.up.slam > 0) boosts.push("⬇ ready");
+            if (SAVE.up.slam > 0) boosts.push("⬇×" + slamCharges);
             document.getElementById("hudBoosts").textContent = boosts.length ? boosts.join("  ") : "—";
             document.getElementById("slamBtn").style.display = SAVE.up.slam > 0 ? "" : "none";
             document.getElementById("muteBtn").textContent = SAVE.muted ? "🔇" : "🔊";
@@ -1821,6 +1824,7 @@
                         SAVE.coins -= cost;
                         SAVE.up[key]++;
                         if (key === "burp" && phase < PHASE.FLIGHT) burpCharges = SAVE.up.burp;
+                        if (key === "slam" && phase < PHASE.FLIGHT) slamCharges = SAVE.up.slam;
                         save(); sndBuy(); updateHud(); renderShop();
                     });
                 }
@@ -1892,9 +1896,11 @@
             if (phase === PHASE.FLIGHT) {
                 stepFlight(dt);
                 document.getElementById("hudDist").textContent = Math.floor(dist) + "m";
-                if (SAVE.up.burp > 0) {
-                    document.getElementById("hudBoosts").textContent =
-                        "💨×" + burpCharges + (SAVE.up.slam > 0 ? "  ⬇" : "");
+                if (SAVE.up.burp > 0 || SAVE.up.slam > 0) {
+                    const b = [];
+                    if (SAVE.up.burp > 0) b.push("💨×" + burpCharges);
+                    if (SAVE.up.slam > 0) b.push("⬇×" + slamCharges);
+                    document.getElementById("hudBoosts").textContent = b.join("  ");
                 }
             }
             stepFx(dt);
