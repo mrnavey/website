@@ -256,10 +256,11 @@
     o.start(t0); o.stop(t0 + dur);
   }
   const sndDrop    = () => beep(200, 0.06, 0.12);
-  const sndLand    = () => beep(120, 0.10, 0.18, 'triangle');
+  const sndLand    = (h) => beep(120 + Math.min(h * 2, 140), 0.10, 0.18, 'triangle'); // thud rises as the tower grows
   const sndTrim    = () => beep(90,  0.14, 0.15, 'sawtooth');
   const sndPerfect = () => { beep(660, 0.08, 0.14); beep(880, 0.10, 0.14, 'square', 0.07); };
   const sndOver    = () => { beep(300, 0.15, 0.16, 'sawtooth'); beep(200, 0.2, 0.16, 'sawtooth', 0.12); beep(120, 0.3, 0.16, 'sawtooth', 0.26); };
+  const sndRecord  = () => { beep(523, 0.10, 0.15, 'triangle'); beep(659, 0.10, 0.15, 'triangle', 0.08); beep(784, 0.12, 0.15, 'triangle', 0.16); beep(1047, 0.22, 0.15, 'triangle', 0.24); };
 
   const muteBtn = document.getElementById('mute');
   muteBtn.addEventListener('click', e => {
@@ -350,12 +351,15 @@
   let camY = 0, camTarget = 0;
   let shake = 0;
   let flashA = 0;              // perfect flash alpha
+  let bestLineCrossed = false; // passed the previous record height this run
+  let lineFlash = 0;           // BEST-line celebration flash
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function reset() {
     blocks = []; debris = []; particles = [];
     score = 0; combo = 0;
+    bestLineCrossed = false; lineFlash = 0;
     baseW = Math.max(90, Math.min(W * 0.42, 170));
     groundY = 0;
     blocks.push({ x: (W - baseW) / 2, y: -BLOCK_H, w: baseW, c: PALETTE[0] });
@@ -494,6 +498,7 @@
       flashA = 0.5;
       shake = Math.min(8, 3 + combo);
       sndPerfect();
+      if (navigator.vibrate) navigator.vibrate(15); // felt on Android; ignored elsewhere
       for (let k = 0; k < 14; k++) {
         particles.push({
           x: newX + Math.random() * newW, y: restY,
@@ -516,9 +521,17 @@
       shake = 2;
       sndTrim();
     }
-    sndLand();
-
     blocks.push({ x: newX, y: restY, w: newW, c: cur.c });
+    const h = blocks.length - 1;
+    sndLand(h);
+
+    // Celebrate passing the previous record height
+    if (!bestLineCrossed && bestH[diff] > 0 && h > bestH[diff]) {
+      bestLineCrossed = true;
+      lineFlash = 1;
+      sndRecord();
+    }
+
     swingSpeed = D().baseSpeed + Math.min(D().speedCap, blocks.length * D().speedGrow);
     camTarget = restY - H * 0.62;
     updateScore();
@@ -577,6 +590,7 @@
       if (p.life <= 0) particles.splice(i, 1);
     }
     if (flashA > 0) flashA = Math.max(0, flashA - dt * 1.6);
+    if (lineFlash > 0) lineFlash = Math.max(0, lineFlash - dt * 1.1);
     if (shake > 0.3) shake *= Math.pow(0.0001, dt); else shake = 0;
   }
 
@@ -624,11 +638,12 @@
     ctx.fillStyle = '#2d261d';
     ctx.fillRect(0, groundY + 6, W, H);
 
-    // previous best height — a dashed line to aim for
+    // previous best height — a dashed line to aim for; celebrates when you pass it
     if (bestH[diff] > 0 && blocks.length) {
       const lineY = -(bestH[diff] + 1) * BLOCK_H; // top surface of the record tower
-      ctx.strokeStyle = 'rgba(210,171,98,0.5)';
-      ctx.lineWidth = 2;
+      const lineA = Math.min(1, (bestLineCrossed ? 0.85 : 0.5) + lineFlash * 0.15);
+      ctx.strokeStyle = `rgba(233,196,106,${lineA})`;
+      ctx.lineWidth = 2 + lineFlash * 2;
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
       ctx.moveTo(0, lineY);
@@ -637,8 +652,8 @@
       ctx.setLineDash([]);
       ctx.font = '700 11px "Courier New", monospace';
       ctx.textAlign = 'right';
-      ctx.fillStyle = 'rgba(210,171,98,0.75)';
-      ctx.fillText('BEST', W - 10, lineY - 6);
+      ctx.fillStyle = `rgba(233,196,106,${Math.min(1, (bestLineCrossed ? 0.95 : 0.75) + lineFlash * 0.05)})`;
+      ctx.fillText(bestLineCrossed ? 'NEW BEST' : 'BEST', W - 10, lineY - 6);
     }
 
     // tower
