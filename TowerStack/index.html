@@ -655,6 +655,8 @@
   const lbSlots = document.getElementById('lbSlots');
   const INITIALS_KEY = 'towerstack_initials';
   const BAD_INITIALS = ['ASS', 'SEX', 'FUK', 'FUC', 'FCK', 'SHT', 'DIK', 'DCK', 'CUM', 'TIT', 'FAG', 'NIG', 'KKK', 'CNT'];
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ '; // blank comes after Z, arcade-style
+  const INI_RE = /^[A-Z ][A-Z ][A-Z ]$/;
   let entryActive = false;     // initials picker is on screen and owns input
   let entryPending = false;    // qualified this run but not submitted yet
   let entrySel = 0;
@@ -678,9 +680,9 @@
     top.forEach((e, i) => {
       const row = document.createElement('div');
       row.className = 'lb-row';
-      const ini = /^[A-Z][A-Z][A-Z]$/.test(e.initials) ? e.initials : '???';
+      const ini = INI_RE.test(e.initials) ? e.initials : '???';
       const r = document.createElement('span'); r.className = 'r'; r.textContent = (i + 1) + '.';
-      const n = document.createElement('span'); n.textContent = ini;
+      const n = document.createElement('span'); n.textContent = ini.replace(/ /g, '\u00A0');
       const s = document.createElement('span'); s.className = 's'; s.textContent = e.score;
       if (hl && !hlDone && ini === hl.initials && e.score === hl.score) {
         row.classList.add('me');
@@ -716,7 +718,7 @@
       up.textContent = '▲';
       const letter = document.createElement('div');
       letter.className = 'lb-letter';
-      letter.textContent = ch;
+      letter.textContent = ch === ' ' ? '\u00A0' : ch; // blank renders as an empty box
       const dn = document.createElement('button');
       dn.textContent = '▼';
       up.addEventListener('click', e => { e.stopPropagation(); cycleLetter(i, 1); });
@@ -728,8 +730,8 @@
   }
 
   function cycleLetter(i, dir) {
-    const c = entryLetters[i].charCodeAt(0) - 65;
-    entryLetters[i] = String.fromCharCode(65 + ((c + dir + 26) % 26));
+    const c = LETTERS.indexOf(entryLetters[i]);
+    entryLetters[i] = LETTERS[(c + dir + LETTERS.length) % LETTERS.length];
     entrySel = i;
     buildSlots();
     beep(330 + i * 40, 0.03, 0.05);
@@ -740,7 +742,7 @@
     playedScore = sc;
     try {
       const saved = localStorage.getItem(INITIALS_KEY);
-      if (saved && /^[A-Z][A-Z][A-Z]$/.test(saved)) entryLetters = saved.split('');
+      if (saved && INI_RE.test(saved)) entryLetters = saved.split('');
     } catch (e) { /* ignore */ }
     entrySel = 0;
     entryActive = true;
@@ -788,7 +790,8 @@
     else if (e.code === 'ArrowLeft') { e.preventDefault(); entrySel = (entrySel + 2) % 3; buildSlots(); }
     else if (e.code === 'ArrowRight') { e.preventDefault(); entrySel = (entrySel + 1) % 3; buildSlots(); }
     else if (e.code === 'Enter') { e.preventDefault(); submitInitials(); }
-    else if (e.code === 'Backspace') { e.preventDefault(); entrySel = (entrySel + 2) % 3; entryLetters[entrySel] = 'A'; buildSlots(); }
+    else if (e.code === 'Space') { e.preventDefault(); entryLetters[entrySel] = ' '; entrySel = (entrySel + 1) % 3; buildSlots(); }
+    else if (e.code === 'Backspace') { e.preventDefault(); entrySel = (entrySel + 2) % 3; entryLetters[entrySel] = ' '; buildSlots(); }
     else if (/^[a-zA-Z]$/.test(e.key)) { e.preventDefault(); entryLetters[entrySel] = e.key.toUpperCase(); entrySel = (entrySel + 1) % 3; buildSlots(); }
   }
 
