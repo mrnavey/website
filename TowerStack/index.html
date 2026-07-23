@@ -57,7 +57,7 @@
     color: var(--ink-dim);
     pointer-events: none;
   }
-  #mute, #zoneBtn {
+  #mute, #zoneBtn, #homeBtn {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top, 0px));
     right: 12px;
@@ -211,6 +211,16 @@
     text-shadow: 2px 2px 0 var(--shadow);
   }
   .lb-slot.sel .lb-letter { border-color: var(--accent); }
+  .diffrow button[data-d="easy"].on {
+    background: #8fae4a;
+    border-color: #8fae4a;
+    color: #1c1812;
+  }
+  .diffrow button[data-d="med"].on {
+    background: #d4b545;
+    border-color: #d4b545;
+    color: #1c1812;
+  }
   .diffrow button[data-d="hard"].on {
     background: #c75f33;
     border-color: #c75f33;
@@ -230,6 +240,7 @@
 <div id="hud"><div id="score"></div></div>
 <button id="mute" aria-label="Toggle sound">&#128266;</button>
 <button id="zoneBtn" style="right: 64px;" aria-label="Change style">&#127797;</button>
+<button id="homeBtn" style="right: 116px;" aria-label="Back to menu">&#127968;</button>
 
 <div class="overlay" id="startOv">
   <h1>TOWER <span>STACK</span></h1>
@@ -639,6 +650,16 @@
     const keys = Object.keys(ZONES);
     applyZone(keys[(keys.indexOf(zone) + 1) % keys.length]);
     savePrefs();
+  });
+  // HUD home button abandons the run and returns to the start screen
+  document.getElementById('homeBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    state = 'start';
+    entryPending = false;
+    hideEntry();
+    document.getElementById('overOv').classList.add('hidden');
+    document.getElementById('startOv').classList.remove('hidden');
+    updateScore();
   });
   window.addEventListener('resize', initScene);
   applyZone(zone);
