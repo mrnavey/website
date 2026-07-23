@@ -129,7 +129,7 @@
     text-transform: uppercase;
   }
   #newbest.hidden { display: none; }
-  .diffrow { display: flex; gap: 8px; margin-top: 4px; }
+  .diffrow { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
   .diffrow button {
     font-family: inherit;
     font-size: 12px;
@@ -214,6 +214,11 @@
     border-color: #c75f33;
     color: #1c1812;
   }
+  .diffrow button[data-d="extreme"].on {
+    background: #b03030;
+    border-color: #b03030;
+    color: #1c1812;
+  }
 </style>
 </head>
 <body>
@@ -230,6 +235,7 @@
     <button data-d="easy">Easy</button>
     <button data-d="med" class="on">Medium</button>
     <button data-d="hard">Hard</button>
+    <button data-d="extreme">Extreme</button>
   </div>
   <button id="startBtn">Tap to play</button>
   <a class="backlink" href="/index.html">&larr; The Arcade</a>
@@ -255,6 +261,7 @@
     <button data-d="easy">Easy</button>
     <button data-d="med" class="on">Medium</button>
     <button data-d="hard">Hard</button>
+    <button data-d="extreme">Extreme</button>
   </div>
   <button id="againBtn">Again</button>
   <a class="backlink" href="/index.html">&larr; The Arcade</a>
@@ -336,13 +343,14 @@
 
   // ---------------- game state ----------------
   const BLOCK_H = 32;
-  const GROW_PER_PERFECT = 6;  // px width restored on perfect
 
   // ---------------- difficulty ----------------
+  // wScale: starting block width multiplier; grow: px restored on a perfect drop
   const DIFF = {
-    easy: { tol: 12, baseSpeed: 1.15, speedGrow: 0.030, speedCap: 1.1, baseAngle: 0.45, angleGrow: 0.0025, angleCap: 0.18 },
-    med:  { tol: 7,  baseSpeed: 1.6,  speedGrow: 0.045, speedCap: 1.6, baseAngle: 0.55, angleGrow: 0.0040, angleCap: 0.25 },
-    hard: { tol: 4,  baseSpeed: 2.1,  speedGrow: 0.060, speedCap: 2.2, baseAngle: 0.62, angleGrow: 0.0055, angleCap: 0.30 },
+    easy:    { tol: 12, baseSpeed: 1.15, speedGrow: 0.030, speedCap: 1.1, baseAngle: 0.45, angleGrow: 0.0025, angleCap: 0.18, wScale: 1,    grow: 6 },
+    med:     { tol: 7,  baseSpeed: 1.6,  speedGrow: 0.045, speedCap: 1.6, baseAngle: 0.55, angleGrow: 0.0040, angleCap: 0.25, wScale: 1,    grow: 6 },
+    hard:    { tol: 4,  baseSpeed: 2.1,  speedGrow: 0.060, speedCap: 2.2, baseAngle: 0.62, angleGrow: 0.0055, angleCap: 0.30, wScale: 1,    grow: 6 },
+    extreme: { tol: 2,  baseSpeed: 2.6,  speedGrow: 0.075, speedCap: 2.6, baseAngle: 0.70, angleGrow: 0.0070, angleCap: 0.35, wScale: 0.75, grow: 4 },
   };
   let diff = 'med';
   const D = () => DIFF[diff];
@@ -358,12 +366,12 @@
 
   // High scores persist across visits via localStorage
   const BEST_KEY = 'towerstack_bests';
-  const bests = { easy: 0, med: 0, hard: 0 };
+  const bests = { easy: 0, med: 0, hard: 0, extreme: 0 };
   function loadBests() {
     try {
       const saved = JSON.parse(localStorage.getItem(BEST_KEY));
       if (saved && typeof saved === 'object') {
-        for (const k of ['easy', 'med', 'hard']) {
+        for (const k of ['easy', 'med', 'hard', 'extreme']) {
           if (Number.isFinite(saved[k])) bests[k] = saved[k];
         }
       }
@@ -376,12 +384,12 @@
 
   // Tallest tower (blocks landed) per difficulty — drives the "BEST" line to beat
   const BESTH_KEY = 'towerstack_besth';
-  const bestH = { easy: 0, med: 0, hard: 0 };
+  const bestH = { easy: 0, med: 0, hard: 0, extreme: 0 };
   function loadBestH() {
     try {
       const saved = JSON.parse(localStorage.getItem(BESTH_KEY));
       if (saved && typeof saved === 'object') {
-        for (const k of ['easy', 'med', 'hard']) {
+        for (const k of ['easy', 'med', 'hard', 'extreme']) {
           if (Number.isFinite(saved[k])) bestH[k] = saved[k];
         }
       }
@@ -425,7 +433,7 @@
     bestLineCrossed = false; lineFlash = 0;
     entryPending = false;
     hideEntry();
-    baseW = Math.max(90, Math.min(W * 0.42, 170));
+    baseW = Math.max(90, Math.min(W * 0.42, 170)) * D().wScale;
     groundY = 0;
     blocks.push({ x: (W - baseW) / 2, y: -BLOCK_H, w: baseW, c: PALETTE[0] });
     swingT = 0;
@@ -570,7 +578,7 @@
       // perfect: snap, regrow, celebrate
       newX = top.x; newW = top.w;
       combo++;
-      newW = Math.min(baseW, newW + GROW_PER_PERFECT);
+      newW = Math.min(baseW, newW + D().grow);
       newX = top.x + (top.w - newW) / 2;
       score += 1 + Math.min(combo, 5); // combo bonus
       flashA = 0.5;
