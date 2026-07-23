@@ -13,6 +13,8 @@
     --ink-dim: #8d8268;
     --line: #4a4133;
     --shadow: #16120c;
+    --accent: #d2ab62;
+    --scrim: rgba(28, 24, 18, 0.72);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -55,7 +57,7 @@
     color: var(--ink-dim);
     pointer-events: none;
   }
-  #mute {
+  #mute, #zoneBtn {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top, 0px));
     right: 12px;
@@ -79,7 +81,7 @@
     align-items: center;
     justify-content: center;
     gap: 14px;
-    background: rgba(28, 24, 18, 0.72);
+    background: var(--scrim);
     text-align: center;
     padding: 20px;
   }
@@ -125,7 +127,7 @@
   #newbest {
     font-size: 13px;
     letter-spacing: 3px;
-    color: #d2ab62;
+    color: var(--accent);
     text-transform: uppercase;
   }
   #newbest.hidden { display: none; }
@@ -182,7 +184,7 @@
   .lb-row { display: flex; gap: 14px; }
   .lb-row .r { color: var(--ink-dim); min-width: 2.5ch; }
   .lb-row .s { margin-left: auto; }
-  .lb-row.me { color: #d2ab62; }
+  .lb-row.me { color: var(--accent); }
   #lbEntry { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .lb-slots { display: flex; gap: 10px; }
   .lb-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -203,12 +205,12 @@
     font-size: 26px;
     font-weight: 700;
     text-align: center;
-    color: #d2ab62;
+    color: var(--accent);
     background: var(--panel);
     border: 2px solid var(--line);
     text-shadow: 2px 2px 0 var(--shadow);
   }
-  .lb-slot.sel .lb-letter { border-color: #d2ab62; }
+  .lb-slot.sel .lb-letter { border-color: var(--accent); }
   .diffrow button[data-d="hard"].on {
     background: #c75f33;
     border-color: #c75f33;
@@ -227,6 +229,7 @@
 <div id="best">BEST 0</div>
 <div id="hud"><div id="score"></div></div>
 <button id="mute" aria-label="Toggle sound">&#128266;</button>
+<button id="zoneBtn" style="right: 64px;" aria-label="Change style">&#127797;</button>
 
 <div class="overlay" id="startOv">
   <h1>TOWER <span>STACK</span></h1>
@@ -236,6 +239,12 @@
     <button data-d="med" class="on">Medium</button>
     <button data-d="hard">Hard</button>
     <button data-d="extreme">Extreme</button>
+  </div>
+  <div class="diffrow" id="zoneRow">
+    <button data-z="dusk" class="on">Dusk</button>
+    <button data-z="neon">Neon</button>
+    <button data-z="beach">Beach</button>
+    <button data-z="retro">Retro</button>
   </div>
   <button id="startBtn">Tap to play</button>
   <a class="backlink" href="/index.html">&larr; The Arcade</a>
@@ -293,19 +302,346 @@
   resize();
   window.addEventListener('resize', resize);
 
-  // ---------------- palette ----------------
-  const BG_TOP = '#1c1812', BG_BOT = '#262119';
-  const PALETTE = [
-    [210,171,98],  // sand
-    [178,98,66],   // terracotta
-    [143,174,74],  // moss
-    [93,142,166],  // water
-    [122,104,142], // dusk purple
-    [110,103,92],  // stone
-    [196,150,82],  // ochre
-    [104,140,120], // sage
-  ];
+  // ---------------- zones: palette + living backdrop ----------------
   const shade = (c, f) => `rgb(${(c[0]*f)|0},${(c[1]*f)|0},${(c[2]*f)|0})`;
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+  const ZONES = {
+    dusk: {
+      css: { '--bg':'#262119', '--panel':'#362e24', '--panel-deep':'#2d261d', '--ink':'#d8cdb4', '--ink-dim':'#8d8268', '--line':'#4a4133', '--shadow':'#16120c', '--accent':'#d2ab62', '--scrim':'rgba(28,24,18,0.72)' },
+      bgTop: '#1c1812', bgBot: '#262119',
+      groundTop: '#36402e', groundDeep: '#2d261d',
+      blocks: [
+        [210,171,98],  // sand
+        [178,98,66],   // terracotta
+        [143,174,74],  // moss
+        [93,142,166],  // water
+        [122,104,142], // dusk purple
+        [110,103,92],  // stone
+        [196,150,82],  // ochre
+        [104,140,120], // sage
+      ],
+      spark: [233,173,92], accent: [210,171,98],
+      rope: 'rgba(216,205,180,0.5)', guide: 'rgba(216,205,180,0.3)', pivot: '#8d8268'
+    },
+    neon: {
+      css: { '--bg':'#0a0e1c', '--panel':'#131a30', '--panel-deep':'#0e1426', '--ink':'#d6e4ff', '--ink-dim':'#6d7ba3', '--line':'#27314f', '--shadow':'#05070f', '--accent':'#39d8ff', '--scrim':'rgba(5,8,18,0.74)' },
+      bgTop: '#05070f', bgBot: '#101b38',
+      groundTop: '#1b2547', groundDeep: '#121a33',
+      blocks: [
+        [57,216,255],  // cyan
+        [255,64,190],  // magenta
+        [120,255,68],  // lime
+        [255,225,64],  // yellow
+        [178,102,255], // violet
+        [255,122,48],  // orange
+        [64,255,192],  // mint
+        [255,80,80],   // red
+      ],
+      spark: [130,240,255], accent: [57,216,255],
+      rope: 'rgba(140,180,255,0.45)', guide: 'rgba(140,180,255,0.3)', pivot: '#4b5b8c'
+    },
+    beach: {
+      css: { '--bg':'#0e4f6b', '--panel':'#0b4560', '--panel-deep':'#093a52', '--ink':'#eaf7fc', '--ink-dim':'#8ec3d6', '--line':'#1b6484', '--shadow':'#052733', '--accent':'#ffd66b', '--scrim':'rgba(6,40,54,0.68)' },
+      bgTop: '#5fb7e8', bgBot: '#bfe8fa',
+      groundTop: '#f0dcae', groundDeep: '#e2cb92',
+      blocks: [
+        [255,127,102], // coral
+        [64,196,180],  // teal
+        [255,200,87],  // mango
+        [240,240,235], // shell
+        [255,150,180], // hibiscus
+        [92,190,110],  // palm green
+        [120,190,235], // lagoon
+        [250,170,90],  // sunset orange
+      ],
+      spark: [255,214,107], accent: [255,140,50],
+      rope: 'rgba(60,90,110,0.5)', guide: 'rgba(45,70,90,0.35)', pivot: '#4d7d95'
+    },
+    retro: {
+      css: { '--bg':'#8bac0f', '--panel':'#9bbc0f', '--panel-deep':'#8bac0f', '--ink':'#0f380f', '--ink-dim':'#306230', '--line':'#306230', '--shadow':'#0f380f', '--accent':'#0f380f', '--scrim':'rgba(155,188,15,0.82)' },
+      bgTop: '#9bbc0f', bgBot: '#9bbc0f',
+      groundTop: '#306230', groundDeep: '#0f380f',
+      blocks: [
+        [139,172,15],  // GB light
+        [48,98,48],    // GB dark
+      ],
+      spark: [15,56,15], accent: [15,56,15],
+      rope: 'rgba(15,56,15,0.6)', guide: 'rgba(15,56,15,0.35)', pivot: '#0f380f',
+      quantize: true
+    },
+  };
+
+  let zone = 'dusk';
+  const Z = () => ZONES[zone];
+
+  // scene state: stars twinkle, clouds drift, one shooting star, one tumbleweed
+  let sceneT = Math.random() * 100;
+  let stars = [], clouds = [];
+  let shoot = null, shootNext = 6;
+  let tumbleX = -9999, tumbleNext = 4;
+
+  function initScene() {
+    stars = []; clouds = [];
+    shoot = null; shootNext = 4 + Math.random() * 8;
+    tumbleX = -9999; tumbleNext = 3 + Math.random() * 6;
+    const n = zone === 'neon' ? 70 : 40;
+    for (let i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * W, y: Math.random() * H * 1.4,
+        r: 0.8 + Math.random() * 1.4,
+        ph: Math.random() * Math.PI * 2,
+        sp: 0.6 + Math.random() * 2.2,
+        mars: false
+      });
+    }
+    if (zone === 'neon' && stars.length > 8) { stars[8].mars = true; stars[8].r = 2.6; }
+    const nc = zone === 'retro' ? 3 : 4;
+    for (let i = 0; i < nc; i++) {
+      clouds.push({
+        x: Math.random() * W,
+        y: 40 + Math.random() * H * 0.25,
+        s: 0.7 + Math.random() * 0.8,
+        v: 4 + Math.random() * 8
+      });
+    }
+  }
+
+  const ZONE_ICON = { dusk: '\u{1F335}', neon: '\u{1F319}', beach: '\u{1F334}', retro: '\u{1F47E}' };
+
+  function applyZone(z) {
+    zone = z;
+    const css = ZONES[z].css;
+    for (const k in css) document.documentElement.style.setProperty(k, css[k]);
+    document.querySelectorAll('#zoneRow button').forEach(b => b.classList.toggle('on', b.dataset.z === z));
+    document.getElementById('zoneBtn').textContent = ZONE_ICON[z];
+    // recolor the standing tower and active block so a mid-game switch looks right
+    try {
+      const P = ZONES[z].blocks;
+      blocks.forEach((b, i) => { b.c = P[i % P.length]; });
+      if (cur) cur.c = P[blocks.length % P.length];
+    } catch (e) { /* boot time: game state not created yet */ }
+    initScene();
+  }
+
+  function drawCloud(c, fill, stroke) {
+    const s = c.s;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 15 * s, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.arc(c.x + 17 * s, c.y - 11 * s, 13 * s, Math.PI, Math.PI * 1.85);
+    ctx.arc(c.x + 36 * s, c.y - 7 * s, 11 * s, Math.PI * 1.2, Math.PI * 1.95);
+    ctx.arc(c.x + 50 * s, c.y, 13 * s, Math.PI * 1.5, Math.PI * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+
+  // Screen-space backdrop: sky bodies, stars, clouds
+  function drawSceneSky() {
+    const t = sceneT;
+    if (zone === 'neon') {
+      const starOff = camY * 0.25;
+      for (const s of stars) {
+        const sy = (((s.y - starOff) % (H * 1.4)) + H * 1.4) % (H * 1.4) - H * 0.2;
+        const tw = reducedMotion ? 0.7 : 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph));
+        if (s.mars) {
+          ctx.fillStyle = `rgba(255,110,80,${0.6 + 0.4 * tw})`;
+          ctx.shadowColor = '#ff6e50'; ctx.shadowBlur = 6;
+          ctx.beginPath(); ctx.arc(s.x, sy, s.r, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.fillStyle = `rgba(214,228,255,${0.15 + 0.75 * tw})`;
+          ctx.fillRect(s.x | 0, sy | 0, s.r, s.r);
+        }
+      }
+      // the moon, craters and all
+      const mx = W * 0.8, my = 90 - camY * 0.06;
+      ctx.fillStyle = '#e8ecf5';
+      ctx.shadowColor = '#c9d6ff'; ctx.shadowBlur = 30;
+      ctx.beginPath(); ctx.arc(mx, my, 32, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(165,180,210,0.55)';
+      ctx.beginPath(); ctx.arc(mx - 10, my - 6, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx + 8, my + 10, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(mx + 13, my - 12, 3, 0, Math.PI * 2); ctx.fill();
+      // shooting star, every so often
+      if (!reducedMotion) {
+        if (shoot) {
+          shoot.x += shoot.vx / 60; shoot.y += shoot.vy / 60; shoot.life -= 1 / 60;
+          ctx.strokeStyle = `rgba(214,228,255,${Math.max(0, shoot.life * 1.4)})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(shoot.x, shoot.y);
+          ctx.lineTo(shoot.x - shoot.vx * 0.07, shoot.y - shoot.vy * 0.07);
+          ctx.stroke();
+          if (shoot.life <= 0) { shoot = null; shootNext = 6 + Math.random() * 12; }
+        } else if ((shootNext -= 1 / 60) <= 0) {
+          shoot = { x: Math.random() * W * 0.7, y: 30 + Math.random() * H * 0.25, vx: 260 + Math.random() * 160, vy: 120 + Math.random() * 80, life: 0.7 };
+        }
+      }
+    } else if (zone === 'beach') {
+      // sun with glow
+      const sx = W * 0.2, sy = 90 - camY * 0.05;
+      const g = ctx.createRadialGradient(sx, sy, 6, sx, sy, 70);
+      g.addColorStop(0, 'rgba(255,240,180,0.95)');
+      g.addColorStop(0.35, 'rgba(255,224,130,0.5)');
+      g.addColorStop(1, 'rgba(255,224,130,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(sx - 70, sy - 70, 140, 140);
+      ctx.fillStyle = '#fff3c8';
+      ctx.beginPath(); ctx.arc(sx, sy, 24, 0, Math.PI * 2); ctx.fill();
+      for (const c of clouds) drawCloud(c, 'rgba(255,255,255,0.92)', null);
+    } else if (zone === 'retro') {
+      for (const c of clouds) drawCloud(c, '#9bbc0f', '#0f380f');
+    } else {
+      // dusk: a low sun that sinks as the tower climbs
+      const sx = W * 0.74, sy = H * 0.5 - camY * 0.12;
+      const g = ctx.createRadialGradient(sx, sy, 8, sx, sy, 90);
+      g.addColorStop(0, 'rgba(255,190,110,0.9)');
+      g.addColorStop(0.4, 'rgba(230,140,80,0.35)');
+      g.addColorStop(1, 'rgba(230,140,80,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(sx - 90, sy - 90, 180, 180);
+      ctx.fillStyle = '#f5c97e';
+      ctx.beginPath(); ctx.arc(sx, sy, 30, 0, Math.PI * 2); ctx.fill();
+      // dark clouds drifting across the sunset
+      for (const c of clouds) drawCloud(c, 'rgba(58,44,34,0.85)', null);
+      // stars emerge the higher you climb
+      const alt = Math.min(0.7, Math.max(0, (-camY - H) / 2500));
+      if (alt > 0.02) {
+        const starOff = camY * 0.25;
+        for (const s of stars) {
+          const sy2 = (((s.y - starOff) % (H * 1.4)) + H * 1.4) % (H * 1.4) - H * 0.2;
+          const tw = reducedMotion ? 1 : 0.6 + 0.4 * Math.sin(t * s.sp + s.ph);
+          ctx.fillStyle = `rgba(216,205,180,${(alt * tw).toFixed(3)})`;
+          ctx.fillRect(s.x | 0, sy2 | 0, 2, 2);
+        }
+      }
+    }
+  }
+
+  function dunePath(baseY, h, freq, phase) {
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    for (let x = 0; x <= W; x += 10) {
+      ctx.lineTo(x, baseY - h * (0.5 + 0.5 * Math.sin(x * freq + phase)));
+    }
+    ctx.lineTo(W, baseY);
+    ctx.closePath();
+  }
+
+  function drawPalm(px, baseY, dir, ph) {
+    const sway = reducedMotion ? 0 : Math.sin(sceneT * 1.1 + ph) * 0.05;
+    const topX = px + dir * 24 + sway * 42, topY = baseY - 86;
+    ctx.strokeStyle = '#8a5a3b';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(px, baseY);
+    ctx.quadraticCurveTo(px + dir * 5, baseY - 48, topX, topY);
+    ctx.stroke();
+    ctx.strokeStyle = '#3f9c52';
+    ctx.lineWidth = 5;
+    for (let k = 0; k < 6; k++) {
+      const a = -Math.PI * 0.9 + k * (Math.PI * 0.8 / 5) + sway;
+      ctx.beginPath();
+      ctx.moveTo(topX, topY);
+      ctx.quadraticCurveTo(
+        topX + Math.cos(a) * 26, topY + Math.sin(a) * 26 - 8,
+        topX + Math.cos(a) * 46, topY + Math.sin(a) * 46 + 10
+      );
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#6b4326';
+    ctx.beginPath(); ctx.arc(topX - 5, topY + 3, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(topX + 5, topY + 4, 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // World-space backdrop: drawn after the ground, behind the tower
+  function drawSceneWorld() {
+    if (zone === 'beach') {
+      // ocean lapping behind the sand
+      const oh = Math.min(H * 0.16, 120);
+      const g = ctx.createLinearGradient(0, groundY - oh, 0, groundY);
+      g.addColorStop(0, '#2f8fb8');
+      g.addColorStop(1, '#57b6d9');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, groundY - oh, W, oh);
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 2;
+      for (let k = 0; k < 3; k++) {
+        const wy = groundY - oh + oh * (0.3 + k * 0.28);
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 14) {
+          const y = wy + Math.sin(x * 0.05 + sceneT * (1.1 + k * 0.3) + k * 2) * 2.5;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      drawPalm(W * 0.08, groundY + 4, 1, 0);
+      drawPalm(W * 0.92, groundY + 4, -1, 2.1);
+    } else if (zone === 'dusk') {
+      // dune silhouettes on the horizon
+      ctx.fillStyle = 'rgba(58,46,34,0.9)';
+      dunePath(groundY, 26, 0.013, 0);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(45,36,26,0.95)';
+      dunePath(groundY, 14, 0.021, 40);
+      ctx.fill();
+      // a tumbleweed rolls by now and then
+      if (!reducedMotion) {
+        if (tumbleX < -9000) {
+          if ((tumbleNext -= 1 / 60) <= 0) tumbleX = -40;
+        } else {
+          tumbleX += 2.4;
+          const ty = groundY - 11 - Math.abs(Math.sin(tumbleX * 0.045)) * 9;
+          ctx.strokeStyle = 'rgba(150,120,80,0.8)';
+          ctx.lineWidth = 1.5;
+          for (let k = 0; k < 5; k++) {
+            ctx.beginPath();
+            ctx.arc(tumbleX, ty, 3.5 + k * 2, k + tumbleX * 0.08, k + tumbleX * 0.08 + Math.PI * 1.3);
+            ctx.stroke();
+          }
+          if (tumbleX > W + 60) { tumbleX = -9999; tumbleNext = 6 + Math.random() * 10; }
+        }
+      }
+    } else if (zone === 'retro') {
+      // GB bushes along the horizon
+      ctx.fillStyle = '#306230';
+      for (let x = 20; x < W; x += 95) {
+        ctx.beginPath();
+        ctx.arc(x, groundY, 13, Math.PI, 0);
+        ctx.arc(x + 20, groundY, 17, Math.PI, 0);
+        ctx.arc(x + 40, groundY, 11, Math.PI, 0);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Screen-space overlay: the GB LCD scanlines
+  function drawSceneOverlay() {
+    if (zone !== 'retro') return;
+    ctx.fillStyle = 'rgba(15,56,15,0.07)';
+    for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+  }
+
+  document.querySelectorAll('#zoneRow button').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      applyZone(b.dataset.z);
+      savePrefs();
+    });
+  });
+  // HUD button cycles zones, any time — even mid-game
+  document.getElementById('zoneBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const keys = Object.keys(ZONES);
+    applyZone(keys[(keys.indexOf(zone) + 1) % keys.length]);
+    savePrefs();
+  });
+  window.addEventListener('resize', initScene);
+  applyZone(zone);
 
   // ---------------- audio ----------------
   let actx = null, muted = false;
@@ -412,11 +748,12 @@
           muteBtn.style.opacity = 0.45;
         }
         if (DIFF[p.diff]) setDiff(p.diff);
+        if (ZONES[p.zone]) applyZone(p.zone);
       }
     } catch (e) { /* start fresh */ }
   }
   function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify({ muted, diff })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ muted, diff, zone })); } catch (e) { /* ignore */ }
   }
   loadPrefs();
   let camY = 0, camTarget = 0;
@@ -435,7 +772,7 @@
     hideEntry();
     baseW = Math.max(90, Math.min(W * 0.42, 170)) * D().wScale;
     groundY = 0;
-    blocks.push({ x: (W - baseW) / 2, y: -BLOCK_H, w: baseW, c: PALETTE[0] });
+    blocks.push({ x: (W - baseW) / 2, y: -BLOCK_H, w: baseW, c: Z().blocks[0] });
     swingT = 0;
     swingSpeed = D().baseSpeed;
     camY = camTarget = -H * 0.7;
@@ -453,7 +790,7 @@
       w: top.w,
       x: 0, y: 0,
       vx: 0, vy: 0,
-      c: PALETTE[blocks.length % PALETTE.length],
+      c: Z().blocks[blocks.length % Z().blocks.length],
     };
     swingT = Math.random() * Math.PI * 2;
     state = 'swing';
@@ -524,7 +861,7 @@
   // difficulty selectors (both overlays stay in sync)
   function setDiff(d) {
     diff = d;
-    document.querySelectorAll('.diffrow button').forEach(b => {
+    document.querySelectorAll('#diffStart button, #diffOver button').forEach(b => {
       b.classList.toggle('on', b.dataset.d === d);
     });
     savePrefs();
@@ -540,7 +877,7 @@
       }
     }
   }
-  document.querySelectorAll('.diffrow button').forEach(b => {
+  document.querySelectorAll('#diffStart button, #diffOver button').forEach(b => {
     b.addEventListener('click', e => {
       e.stopPropagation(); // don't trigger the overlay's tap-to-play
       setDiff(b.dataset.d);
@@ -836,6 +1173,17 @@
 
   // ---------------- render ----------------
   function drawBlock(x, y, w, h, c) {
+    if (Z().quantize) {
+      // Game Boy mode: flat four-shade fills, no smooth gradients
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
+      ctx.fillStyle = '#9bbc0f';
+      ctx.fillRect(x | 0, y | 0, w | 0, 2);
+      ctx.strokeStyle = '#0f380f';
+      ctx.lineWidth = 2;
+      ctx.strokeRect((x | 0) + 1, (y | 0) + 1, (w | 0) - 2, (h | 0) - 2);
+      return;
+    }
     ctx.fillStyle = shade(c, 1);
     ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
     // pixel-style bevel
@@ -852,19 +1200,13 @@
   function render() {
     // sky
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, BG_TOP);
-    grad.addColorStop(1, BG_BOT);
+    grad.addColorStop(0, Z().bgTop);
+    grad.addColorStop(1, Z().bgBot);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // faint parallax stars
-    ctx.fillStyle = 'rgba(216,205,180,0.10)';
-    const starOff = camY * 0.25;
-    for (let i = 0; i < 40; i++) {
-      const sx = (i * 137.5) % W;
-      const sy = (((i * 89.7) % (H * 1.4)) - (starOff % (H * 1.4)) + H * 1.4) % (H * 1.4) - H * 0.2;
-      ctx.fillRect(sx | 0, sy | 0, 2, 2);
-    }
+    // living backdrop (stars, moon, sun, clouds — per zone)
+    drawSceneSky();
 
     ctx.save();
     if (shake > 0 && !reducedMotion) {
@@ -873,16 +1215,19 @@
     ctx.translate(0, -camY);
 
     // ground
-    ctx.fillStyle = '#36402e';
+    ctx.fillStyle = Z().groundTop;
     ctx.fillRect(0, groundY, W, 6);
-    ctx.fillStyle = '#2d261d';
+    ctx.fillStyle = Z().groundDeep;
     ctx.fillRect(0, groundY + 6, W, H);
+
+    // world-space scenery (ocean, dunes, bushes) behind the tower
+    drawSceneWorld();
 
     // previous best height — a dashed line to aim for; celebrates when you pass it
     if (bestH[diff] > 0 && blocks.length) {
       const lineY = -(bestH[diff] + 1) * BLOCK_H; // top surface of the record tower
       const lineA = Math.min(1, (bestLineCrossed ? 0.85 : 0.5) + lineFlash * 0.15);
-      ctx.strokeStyle = `rgba(233,196,106,${lineA})`;
+      ctx.strokeStyle = rgba(Z().accent, lineA);
       ctx.lineWidth = 2 + lineFlash * 2;
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
@@ -892,7 +1237,7 @@
       ctx.setLineDash([]);
       ctx.font = '700 11px "Courier New", monospace';
       ctx.textAlign = 'right';
-      ctx.fillStyle = `rgba(233,196,106,${Math.min(1, (bestLineCrossed ? 0.95 : 0.75) + lineFlash * 0.05)})`;
+      ctx.fillStyle = rgba(Z().accent, Math.min(1, (bestLineCrossed ? 0.95 : 0.75) + lineFlash * 0.05));
       ctx.fillText(bestLineCrossed ? 'NEW BEST' : 'BEST', W - 10, lineY - 6);
     }
 
@@ -909,7 +1254,7 @@
     }
 
     // particles
-    ctx.fillStyle = '#e9ad5c';
+    ctx.fillStyle = rgba(Z().spark, 1);
     for (const p of particles) {
       if (p.life > 0) ctx.fillRect(p.x | 0, p.y | 0, 3, 3);
     }
@@ -924,17 +1269,17 @@
       const th = maxAngle() * Math.sin(swingT);
       const bx = p.x + ropeLen * Math.sin(th) - cur.w / 2;
       const by = p.y + ropeLen * Math.cos(th);
-      ctx.strokeStyle = 'rgba(216,205,180,0.5)';
+      ctx.strokeStyle = Z().rope;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(bx + cur.w / 2, by);
       ctx.stroke();
-      ctx.fillStyle = '#8d8268';
+      ctx.fillStyle = Z().pivot;
       ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
       drawBlock(bx, by, cur.w, BLOCK_H, cur.c);
       // drop guide: dotted line down from block edges
-      ctx.strokeStyle = 'rgba(216,205,180,0.12)';
+      ctx.strokeStyle = Z().guide;
       ctx.setLineDash([3, 6]);
       ctx.beginPath();
       ctx.moveTo(bx, by + BLOCK_H); ctx.lineTo(bx, H);
@@ -945,7 +1290,7 @@
 
     // perfect flash
     if (flashA > 0) {
-      ctx.fillStyle = `rgba(233,173,92,${flashA})`;
+      ctx.fillStyle = rgba(Z().spark, flashA);
       ctx.fillRect(0, 0, W, H);
     }
 
@@ -953,9 +1298,12 @@
     if (combo >= 2 && state !== 'over') {
       ctx.font = '700 16px "Courier New", monospace';
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#d2ab62';
+      ctx.fillStyle = rgba(Z().accent, 1);
       ctx.fillText('PERFECT ×' + combo, W / 2, 110);
     }
+
+    // zone overlay effects (GB scanlines)
+    drawSceneOverlay();
   }
 
   // ---------------- loop ----------------
@@ -963,6 +1311,14 @@
     let dt = (now - last) / 1000;
     last = now;
     dt = Math.min(dt, 0.033);
+    // scene clock runs even on the start screen so backdrops stay alive
+    sceneT += dt;
+    if (!reducedMotion) {
+      for (const c of clouds) {
+        c.x += c.v * dt;
+        if (c.x > W + 90) c.x = -90;
+      }
+    }
     if (state !== 'start') update(dt);
     render();
     requestAnimationFrame(loop);
