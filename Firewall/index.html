@@ -18,6 +18,7 @@
             --credit: #fbbf24;
             --core: #22d3ee;
             --danger: #ef4444;
+            --amp: #a3e635;
         }
 
         * { box-sizing: border-box; }
@@ -158,6 +159,15 @@
         .selpanel .sname { font-family: 'Silkscreen', monospace; font-size: 12px; color: var(--glow); }
         .selpanel .sstats { font-size: 12px; color: var(--ink-dim); }
         .selpanel .sstats b { color: var(--ink); }
+        .selpanel .samp {
+            font-size: 12px;
+            color: var(--amp);
+            background: rgba(163, 230, 53, 0.12);
+            border: 1px solid rgba(163, 230, 53, 0.4);
+            border-radius: 999px;
+            padding: 3px 9px;
+        }
+        #upBtn b { color: var(--credit); }
 
         /* ---------- Overlays ---------- */
         .overlay {
@@ -345,6 +355,8 @@
         <span class="stat">Wave: <b id="statWave">0</b></span>
         <span class="stat" id="statNext">Next in <b>--</b></span>
         <button id="sendBtn" class="accent">Send wave</button>
+        <button id="upAllBtn" title="Upgrade every node one level, cheapest first">&uarr; All</button>
+        <button id="upModeBtn" title="Tap nodes on the board to upgrade them instantly">&uarr; Tap</button>
         <button id="speedBtn" title="Game speed">1&times;</button>
         <button id="muteBtn" title="Toggle sound">🔊</button>
         <button id="shopBtn">Upgrades</button>
@@ -515,7 +527,7 @@
         const SAVE_KEY = "firewall.save.v1";
         function defaultSave() {
             return {
-                cores: 0, bestWave: 0, totalRuns: 0, muted: false, map: "boot",
+                cores: 0, bestWave: 0, totalRuns: 0, muted: false, map: "boot", run: null,
                 up: { dmg: 0, range: 0, income: 0, start: 0, integrity: 0, interest: 0, refund: 0 },
                 unlocked: ["boot"]
             };
@@ -532,6 +544,7 @@
                     totalRuns: Number(d.totalRuns) || 0,
                     muted: !!d.muted,
                     map: d.map || "boot",
+                    run: d.run || null,
                     up: Object.assign(def.up, d.up || {}),
                     unlocked: Array.isArray(d.unlocked) ? d.unlocked : def.unlocked
                 };
@@ -585,6 +598,7 @@
             layout();
             if (map) buildMap(map);
             for (const t of towers) { t.px = TX(t.tx); t.py = TY(t.ty); }
+            if (towers.length) recomputeAmps();   // relay reach is measured in pixels
         }
 
         const TX = tx => (tx + 0.5) * cell;   // tile -> pixel center
@@ -599,10 +613,11 @@
         let spawnPos = { x: 0, y: 0 };
 
         let towers = [], enemies = [], bullets = [], beams = [], arcs = [], parts = [], rings = [], floats = [];
-        let credits = 0, integrity = 0, wave = 0, nextWaveT = 0;
+        let credits = 0, integrity = 0, maxIntegrity = 20, wave = 0, nextWaveT = 0;
         let spawnQueue = [], spawnT = 0, pendingWave = null;
         let running = false, gameOver = false, speed = 1;
         let armed = null;      // tower type queued for placement
+        let upgradeMode = false;   // tapping a node upgrades it outright
         let selected = null;   // placed tower being inspected
         let hoverTile = { x: -1, y: -1 };
         let shake = 0, coreFlash = 0;
@@ -735,16 +750,57 @@
             buildMap(MAPS.find(m => m.id === SAVE.map) || MAPS[0]);
             towers = []; enemies = []; bullets = []; beams = []; arcs = []; parts = []; rings = []; floats = [];
             credits = metaStart();
-            integrity = metaCore();
+            integrity = maxIntegrity = metaCore();
             // wave 1 waits for the player — no countdown until they're ready
             wave = 0; nextWaveT = 0; spawnQueue = []; spawnT = 0;
             running = false; gameOver = false; coresEarned = 0;
             armed = null; selected = null; shake = 0; coreFlash = 0;
-            confirmSwitch = null;
+            confirmSwitch = null; upgradeMode = false;
             document.getElementById("overOverlay").classList.remove("show");
             prepareNextWave();
             renderPalette(); updateSelPanel(); updateHud();
             relayout();   // palette height is known now, so re-fit the board
+            saveRun();
+        }
+
+        /* ---------- Run persistence ----------
+           Meta progress always persists; this keeps the run itself too, so
+           closing the tab mid-board doesn't throw the game away. Snapshots
+           happen between waves and after any build, so reopening resumes at
+           the start of the wave you were about to face.
+        ---------------------------------------- */
+        function saveRun() {
+            if (gameOver) { SAVE.run = null; save(); return; }
+            SAVE.run = {
+                map: map.id, wave, credits: Math.floor(credits), integrity, maxIntegrity,
+                towers: towers.map(t => ({ type: t.type, tx: t.tx, ty: t.ty, lvl: t.lvl, spent: t.spent, mode: t.mode }))
+            };
+            save();
+        }
+
+        function resumeRun() {
+            const r = SAVE.run;
+            if (!r || !Array.isArray(r.towers)) return false;
+            const m = MAPS.find(x => x.id === r.map);
+            if (!m) return false;
+            SAVE.map = r.map;
+            newRun();
+            wave = Number(r.wave) || 0;
+            credits = Number(r.credits) || 0;
+            maxIntegrity = Number(r.maxIntegrity) || metaCore();
+            integrity = Math.min(maxIntegrity, Number(r.integrity) || maxIntegrity);
+            towers = r.towers.filter(d => TOWERS[d.type] && towerUnlocked(d.type)).map(d => ({
+                type: d.type, def: TOWERS[d.type], lvl: clamp(Number(d.lvl) || 1, 1, MAX_LVL),
+                tx: d.tx, ty: d.ty, px: TX(d.tx), py: TY(d.ty),
+                cd: 0, angle: -Math.PI / 2, spent: Number(d.spent) || TOWERS[d.type].cost,
+                mode: d.mode || "first", flash: 0, ramp: 0, upT: 0
+            }));
+            recomputeAmps();
+            prepareNextWave();
+            nextWaveT = 0;        // resuming shouldn't drop you straight into a wave
+            saveRun();
+            updateHud();
+            return true;
         }
 
         function endRun() {
@@ -756,6 +812,7 @@
             SAVE.cores += coresEarned;
             if (isBest) SAVE.bestWave = reached;
             SAVE.totalRuns++;
+            SAVE.run = null;          // the run is finished; nothing to resume
             save();
             const title = document.getElementById("overTitle");
             title.textContent = isBest ? "NEW RECORD" : "CORE BREACHED";
@@ -803,8 +860,9 @@
             const interest = Math.floor(credits * metaInterest());
             const bonus = Math.round((25 + wave * 7) * metaIncome()) + interest;
             credits += bonus;
-            floats.push({ x: corePos.x, y: corePos.y - cell * 1.2, text: "+" + bonus, t: 1.6, color: "#fbbf24" });
+            floats.push({ x: corePos.x, y: corePos.y - cell * 1.5, text: "+" + bonus, t: 1.6, color: "#fbbf24" });
             sndWaveClear();
+            saveRun();
             updateHud();
         }
 
@@ -858,25 +916,106 @@
             if (integrity <= 0 && !gameOver) endRun();
         }
 
-        function ampFactor(t) {
-            // support relays boost their neighbours
-            let dmgMul = 1, rangeMul = 1;
-            for (const o of towers) {
-                if (!o.def.support || o === t) continue;
-                const rr = o.def.range * upRange(o.lvl) * metaRange() * cell;
-                if (dist2(o.px, o.py, t.px, t.py) <= rr * rr) {
-                    dmgMul += o.def.ampDmg * upDmg(o.lvl) / Math.pow(1.75, o.lvl - 1) * o.lvl;
-                    rangeMul += o.def.ampRange * o.lvl;
+        /* ---------- Amp Relays ----------
+           Relays stack, but each extra one counts for half the last, so
+           carpeting the board with them stops paying off. Bonuses are cached
+           on each tower whenever the layout changes so they can be shown.
+        ---------------------------------- */
+        const ampGive = o => ({ d: o.def.ampDmg * o.lvl, r: o.def.ampRange * o.lvl });
+        const ampReach = o => o.def.range * upRange(o.lvl) * metaRange() * cell;
+
+        function recomputeAmps() {
+            for (const t of towers) { t.ampD = 0; t.ampR = 0; t.ampN = 0; }
+            for (const t of towers) {
+                if (t.def.support) continue;           // relays don't boost each other
+                const gifts = [];
+                for (const o of towers) {
+                    if (!o.def.support || o === t) continue;
+                    const rr = ampReach(o);
+                    if (dist2(o.px, o.py, t.px, t.py) <= rr * rr) gifts.push(ampGive(o));
                 }
+                gifts.sort((a, b) => b.d - a.d);       // strongest relay at full value
+                let f = 1;
+                for (const g of gifts) { t.ampD += g.d * f; t.ampR += g.r * f; f *= 0.5; }
+                t.ampN = gifts.length;
             }
-            return { dmgMul, rangeMul };
         }
 
         function towerRange(t) {
-            return t.def.range * upRange(t.lvl) * metaRange() * ampFactor(t).rangeMul * cell;
+            return t.def.range * upRange(t.lvl) * metaRange() * (1 + (t.ampR || 0)) * cell;
         }
         function towerDamage(t) {
-            return t.def.dmg * upDmg(t.lvl) * metaDmg() * ampFactor(t).dmgMul;
+            return t.def.dmg * upDmg(t.lvl) * metaDmg() * (1 + (t.ampD || 0));
+        }
+
+        // Levelling up improves what a node fires, not just its numbers
+        const towerSplash = t => (t.def.splash || 0) * (1 + 0.18 * (t.lvl - 1));
+        const towerChain  = t => (t.def.chain || 0) + (t.lvl >= 3 ? 1 : 0);
+        const towerSlow   = t => (t.def.slow || 0) + 0.07 * (t.lvl - 1);
+
+        // The node visibly reforges itself when it levels up
+        function upgradeFx(t, silent) {
+            t.upT = 0.55;
+            rings.push({ x: t.px, y: t.py, t: 0, max: cell * 1.7, color: "#fde047" });
+            rings.push({ x: t.px, y: t.py, t: -0.09, max: cell * 1.15, color: t.def.color });
+            for (let i = 0; i < 16; i++) {
+                const a = Math.random() * Math.PI * 2, sp = rand(45, 150);
+                parts.push({
+                    x: t.px, y: t.py, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                    t: rand(0.3, 0.65), color: i % 2 ? "#fde047" : t.def.color, r: 2
+                });
+            }
+            floats.push({ x: t.px, y: t.py - cell * 0.6, text: "LV " + t.lvl, t: 1.1, color: "#fde047", size: Math.max(11, Math.round(cell * 0.3)) });
+            shake = Math.max(shake, 5);
+            if (!silent) sndUpgrade(t.lvl);
+        }
+
+        /* ---------- Bulk upgrading ----------
+           Late boards have dozens of nodes; tapping each one and hunting for
+           its upgrade button is the tedious part, so: one button that raises
+           everything a level, and a mode where tapping a node upgrades it.
+        -------------------------------------- */
+        function upgradeAllPlan() {
+            const cands = towers.filter(t => t.lvl < MAX_LVL)
+                                .sort((a, b) => upCost(a.type, a.lvl) - upCost(b.type, b.lvl));
+            let purse = credits, cost = 0, n = 0;
+            for (const t of cands) {
+                const c = upCost(t.type, t.lvl);
+                if (purse < c) break;              // sorted, so nothing cheaper remains
+                purse -= c; cost += c; n++;
+            }
+            return { list: cands.slice(0, n), n, cost, total: cands.length };
+        }
+
+        function upgradeAll() {
+            const plan = upgradeAllPlan();
+            if (!plan.n) { sndDeny(); return; }
+            for (const t of plan.list) {
+                const c = upCost(t.type, t.lvl);
+                credits -= c; t.spent += c; t.lvl++;
+                upgradeFx(t, true);                // one sound for the whole batch
+            }
+            sndUpgrade(2);
+            floats.push({
+                x: corePos.x, y: corePos.y - cell * 1.8,
+                text: plan.n + " UPGRADED  -" + plan.cost,
+                t: 1.8, color: "#fde047", size: Math.max(12, Math.round(cell * 0.32))
+            });
+            recomputeAmps();
+            saveRun();
+            updateHud(); updateSelPanel(); renderPalette();
+        }
+
+        function upgradeTower(t) {
+            if (!t || t.lvl >= MAX_LVL) { sndDeny(); return false; }
+            const c = upCost(t.type, t.lvl);
+            if (credits < c) { sndDeny(); return false; }
+            credits -= c; t.spent += c; t.lvl++;
+            upgradeFx(t);
+            recomputeAmps();
+            saveRun();
+            updateHud(); updateSelPanel(); renderPalette();
+            return true;
         }
 
         function pickTarget(t, range) {
@@ -932,7 +1071,7 @@
                     const hit = [cur];
                     const pts = [{ x: t.px, y: t.py }, { x: cur.x, y: cur.y }];
                     damage(cur, dmg, t);
-                    for (let c = 1; c < t.def.chain; c++) {
+                    for (let c = 1; c < towerChain(t); c++) {
                         let nxt = null, nd = Infinity;
                         for (const e of enemies) {
                             if (e.hp <= 0 || hit.includes(e)) continue;
@@ -952,9 +1091,9 @@
                 } else {
                     bullets.push({
                         x: t.px, y: t.py, target: tgt, speed: t.def.bullet * cell,
-                        dmg: towerDamage(t), splash: t.def.splash || 0,
-                        slow: t.def.slow || 0, slowT: t.def.slowT || 0,
-                        color: t.def.color, src: t
+                        dmg: towerDamage(t), splash: towerSplash(t),
+                        slow: towerSlow(t), slowT: t.def.slowT || 0,
+                        color: t.def.color, src: t, lvl: t.lvl
                     });
                     if (t.def.splash) sndCannon(); else sndShoot();
                 }
@@ -1035,7 +1174,10 @@
             arcs = arcs.filter(a => (a.t += dt) < 0.12);
             floats = floats.filter(f => (f.t -= dt) > 0);
             for (const f of floats) f.y -= 18 * dt;
-            for (const t of towers) if (t.flash > 0) t.flash -= dt;
+            for (const t of towers) {
+                if (t.flash > 0) t.flash -= dt;
+                if (t.upT > 0) t.upT -= dt;
+            }
             shake = Math.max(0, shake - 34 * dt);
             coreFlash = Math.max(0, coreFlash - dt * 2.2);
         }
@@ -1060,8 +1202,12 @@
             // you have to disarm before you can upgrade what you just placed.
             if (existing) {
                 selected = existing;
-                updateSelPanel();
-                sndTick(520);
+                if (upgradeMode) {
+                    upgradeTower(existing);       // handles its own deny sound
+                } else {
+                    updateSelPanel();
+                    sndTick(520);
+                }
                 return;
             }
             if (armed) {
@@ -1072,9 +1218,11 @@
                 towers.push({
                     type: armed, def, lvl: 1, tx, ty,
                     px: TX(tx), py: TY(ty), cd: 0, angle: -Math.PI / 2,
-                    spent: def.cost, mode: "first", flash: 0, ramp: 0
+                    spent: def.cost, mode: "first", flash: 0, ramp: 0, upT: 0
                 });
                 sndBuild();
+                recomputeAmps();
+                saveRun();
                 if (credits < def.cost) { armed = null; }
                 renderPalette(); updateHud();
                 return;
@@ -1083,8 +1231,61 @@
             updateSelPanel();
         });
 
+        /* ---------- Cheat code ----------
+           Type "testingcheats true" anywhere. Keys are swallowed while the
+           buffer is a live prefix, so the space in the phrase doesn't
+           launch a wave mid-typing.
+        ---------------------------------- */
+        const CHEAT = "testingcheats true";
+        let cheatBuf = "";
+
+        function feedCheat(key) {
+            if (!key || key.length !== 1) return false;
+            let buf = cheatBuf + key.toLowerCase();
+            while (buf && !CHEAT.startsWith(buf)) buf = buf.slice(1);   // recover from typos
+            cheatBuf = buf;
+            if (cheatBuf === CHEAT) { cheatBuf = ""; applyCheats(); return true; }
+            return cheatBuf.length > 0;
+        }
+
+        function applyCheats() {
+            for (const k of Object.keys(PERKS)) SAVE.up[k] = PERKS[k].max;
+            SAVE.unlocked = [...new Set([
+                ...SAVE.unlocked,
+                ...UNLOCKS.map(u => u.id),
+                ...MAPS.map(m => m.id)
+            ])];
+            SAVE.cores = Math.max(SAVE.cores, 99999);
+            save();
+            credits += 100000;                     // so nodes can actually be built too
+            integrity = maxIntegrity = Math.max(integrity, metaCore());
+            burpConfetti();
+            floats.push({
+                x: corePos.x, y: corePos.y - cell * 2,
+                text: "CHEATS ENABLED", t: 2.4, color: "#a3e635",
+                size: Math.max(14, Math.round(cell * 0.42))
+            });
+            sndUpgrade(3); sndWaveClear();
+            renderPalette(); updateHud(); updateSelPanel(); saveRun();
+            if (document.getElementById("shopOverlay").classList.contains("show")) renderShop();
+        }
+
+        function burpConfetti() {
+            for (let i = 0; i < 40; i++) {
+                const a = Math.random() * Math.PI * 2, sp = rand(60, 240);
+                parts.push({
+                    x: corePos.x, y: corePos.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                    t: rand(0.4, 1.0), r: 2.5,
+                    color: ["#a3e635", "#fde047", "#22d3ee", "#f472b6"][i % 4]
+                });
+            }
+            rings.push({ x: corePos.x, y: corePos.y, t: 0, max: cell * 5, color: "#a3e635" });
+        }
+
         window.addEventListener("keydown", e => {
+            if (feedCheat(e.key)) { e.preventDefault(); return; }   // mid-cheat, ignore hotkeys
             if (e.key === "Escape") { armed = null; selected = null; renderPalette(); updateSelPanel(); }
+            if (e.key === "u" || e.key === "U") { if (selected) upgradeTower(selected); }
             const n = parseInt(e.key, 10);
             if (n >= 1 && n <= 6) {
                 const t = TOWER_ORDER[n - 1];
@@ -1189,58 +1390,112 @@
         }
 
         function drawCore(now) {
-            const s = cell * 0.78;
-            const pulse = 1 + Math.sin(now * 3) * 0.04;
+            const s = cell * 1.24;                       // spans past its tile so the HP is readable
+            const frac = clamp(integrity / Math.max(1, maxIntegrity), 0, 1);
+            const hurt = frac <= 0.35;
+            const tone = frac > 0.6 ? "#22d3ee" : frac > 0.3 ? "#fbbf24" : "#ef4444";
+            // heartbeat gets faster and harder as the core fails
+            const beat = Math.sin(now * (hurt ? 7 : 3));
+            const pulse = 1 + beat * (hurt ? 0.07 : 0.03);
+
             ctx.save();
             ctx.translate(corePos.x, corePos.y);
             ctx.scale(pulse, pulse);
+
             // pins
             ctx.strokeStyle = "#94a3b8";
             ctx.lineWidth = 2;
             for (let i = -1; i <= 1; i++) {
                 ctx.beginPath();
-                ctx.moveTo(-s / 2 - 5, i * s * 0.3); ctx.lineTo(-s / 2, i * s * 0.3);
-                ctx.moveTo(s / 2, i * s * 0.3); ctx.lineTo(s / 2 + 5, i * s * 0.3);
+                ctx.moveTo(-s / 2 - 5, i * s * 0.28); ctx.lineTo(-s / 2, i * s * 0.28);
+                ctx.moveTo(s / 2, i * s * 0.28); ctx.lineTo(s / 2 + 5, i * s * 0.28);
                 ctx.stroke();
             }
-            const hurt = integrity <= metaCore() * 0.35;
-            ctx.fillStyle = "#0e7490";
-            ctx.strokeStyle = hurt ? "#ef4444" : "#22d3ee";
+
+            // chip body
+            ctx.fillStyle = "#0b3b46";
+            ctx.strokeStyle = tone;
             ctx.lineWidth = 2.5;
-            ctx.shadowColor = hurt ? "#ef4444" : "#22d3ee";
-            ctx.shadowBlur = 16;
+            ctx.shadowColor = tone;
+            ctx.shadowBlur = hurt ? 20 + beat * 8 : 14;
             ctx.beginPath();
             ctx.roundRect(-s / 2, -s / 2, s, s, 5);
             ctx.fill(); ctx.stroke();
             ctx.shadowBlur = 0;
-            ctx.fillStyle = hurt ? "#fecaca" : "#a5f3fc";
-            ctx.font = "700 " + Math.round(cell * 0.26) + "px Silkscreen, monospace";
+
+            // the number IS the health — biggest thing on the chip
             ctx.textAlign = "center";
-            ctx.fillText("CPU", 0, cell * 0.09);
+            ctx.fillStyle = "#64748b";
+            ctx.font = "700 " + Math.max(6, Math.round(cell * 0.2)) + "px Silkscreen, monospace";
+            ctx.fillText("CPU", 0, -s * 0.16);
+            ctx.fillStyle = frac > 0.6 ? "#a5f3fc" : frac > 0.3 ? "#fde68a" : "#fecaca";
+            ctx.font = "700 " + Math.max(9, Math.round(cell * 0.46)) + "px Silkscreen, monospace";
+            ctx.fillText(String(Math.max(0, integrity)), 0, s * 0.3);
+
+            // integrity bar beneath the chip
+            const bw = s, bh = Math.max(3, cell * 0.11), by = s / 2 + Math.max(3, cell * 0.1);
+            ctx.fillStyle = "rgba(15,23,42,0.9)";
+            ctx.fillRect(-bw / 2 - 1, by - 1, bw + 2, bh + 2);
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(-bw / 2, by, bw, bh);
+            ctx.fillStyle = tone;
+            ctx.fillRect(-bw / 2, by, bw * frac, bh);
             ctx.restore();
         }
 
+        const AMP_COLOR = "#a3e635";
+
         function drawTowers(now) {
+            // boosted nodes sit on a lime pool of light so relay coverage is obvious
             for (const t of towers) {
-                const s = cell * 0.36;
+                if (t.def.support || !t.ampD) continue;
+                const strength = clamp(t.ampD / 0.6, 0.25, 1);
+                const rad = cell * (0.55 + 0.25 * strength);
+                const g = ctx.createRadialGradient(t.px, t.py, 0, t.px, t.py, rad);
+                g.addColorStop(0, "rgba(163, 230, 53, " + (0.34 * strength).toFixed(3) + ")");
+                g.addColorStop(1, "rgba(163, 230, 53, 0)");
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.arc(t.px, t.py, rad, 0, Math.PI * 2); ctx.fill();
+            }
+
+            for (const t of towers) {
+                const lvl = t.lvl;
+                const up = t.upT > 0 ? t.upT / 0.55 : 0;           // 1 → 0 during the transformation
+                const punch = 1 + 0.45 * Math.sin(up * Math.PI);
+                const grow = 1 + 0.11 * (lvl - 1);
+                const s = cell * 0.36 * grow;
+
                 ctx.save();
                 ctx.translate(t.px, t.py);
-                // base pad
+                ctx.scale(punch, punch);
+
+                // base pad — gains a plated rim at each level
                 ctx.fillStyle = "#1e293b";
-                ctx.strokeStyle = t === selected ? "#f8fafc" : "#334155";
-                ctx.lineWidth = t === selected ? 2.5 : 1.5;
+                ctx.strokeStyle = t === selected ? "#f8fafc" : lvl >= 3 ? "#fde047" : lvl >= 2 ? "#94a3b8" : "#334155";
+                ctx.lineWidth = t === selected ? 2.5 : lvl >= 2 ? 2 : 1.5;
                 ctx.beginPath();
                 ctx.roundRect(-cell * 0.42, -cell * 0.42, cell * 0.84, cell * 0.84, 5);
                 ctx.fill(); ctx.stroke();
+                if (lvl >= 3) {
+                    ctx.strokeStyle = "rgba(253, 224, 71, 0.45)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(-cell * 0.35, -cell * 0.35, cell * 0.7, cell * 0.7, 4);
+                    ctx.stroke();
+                }
 
                 ctx.rotate(t.angle + Math.PI / 2);
                 ctx.fillStyle = t.def.color;
                 ctx.shadowColor = t.def.color;
-                ctx.shadowBlur = t.flash > 0 ? 16 : 6;
+                ctx.shadowBlur = (t.flash > 0 ? 16 : 6) + (lvl - 1) * 5;
 
                 if (t.type === "pulse") {
                     ctx.beginPath(); ctx.arc(0, 0, s * 0.62, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillRect(-s * 0.16, -s * 1.15, s * 0.32, s * 0.72);
+                    // one barrel at Lv1, twin at Lv2, triple at Lv3
+                    const barrels = lvl === 1 ? [0] : lvl === 2 ? [-0.28, 0.28] : [-0.36, 0, 0.36];
+                    for (const bx of barrels) {
+                        ctx.fillRect(bx * s - s * 0.13, -s * (1.15 + 0.08 * (lvl - 1)), s * 0.26, s * 0.75);
+                    }
                 } else if (t.type === "cryo") {
                     ctx.beginPath();
                     for (let i = 0; i < 6; i++) {
@@ -1250,24 +1505,38 @@
                     ctx.closePath(); ctx.fill();
                     ctx.strokeStyle = t.def.color;
                     ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.arc(0, 0, s * 1.0, 0, Math.PI * 2); ctx.stroke();
+                    for (let i = 0; i < lvl; i++) {          // frost rings per level
+                        ctx.globalAlpha = 1 - i * 0.28;
+                        ctx.beginPath(); ctx.arc(0, 0, s * (1.0 + i * 0.26), 0, Math.PI * 2); ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1;
                 } else if (t.type === "cannon") {
                     ctx.beginPath();
                     ctx.roundRect(-s * 0.7, -s * 0.5, s * 1.4, s * 1.1, 3);
                     ctx.fill();
-                    ctx.fillRect(-s * 0.26, -s * 1.35, s * 0.52, s * 0.95);
+                    const bar = lvl >= 3 ? [-0.3, 0.3] : [0];   // double barrel at Lv3
+                    for (const bx of bar) {
+                        ctx.fillRect(bx * s - s * 0.24, -s * (1.35 + 0.12 * (lvl - 1)), s * 0.48, s * (0.95 + 0.12 * (lvl - 1)));
+                    }
+                    if (lvl >= 2) { ctx.fillStyle = "#fde047"; ctx.fillRect(-s * 0.5, -s * 0.1, s * 1.0, s * 0.14); ctx.fillStyle = t.def.color; }
                 } else if (t.type === "laser") {
                     ctx.beginPath();
                     ctx.moveTo(0, -s * 1.25); ctx.lineTo(s * 0.6, s * 0.5); ctx.lineTo(-s * 0.6, s * 0.5);
                     ctx.closePath(); ctx.fill();
                     ctx.fillStyle = "#fff";
-                    ctx.beginPath(); ctx.arc(0, -s * 0.55, s * 0.16, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, -s * 0.55, s * (0.16 + 0.07 * (lvl - 1)), 0, Math.PI * 2); ctx.fill();
+                    if (lvl >= 2) {                              // focusing fins
+                        ctx.fillStyle = t.def.color;
+                        ctx.fillRect(-s * 0.85, s * 0.1, s * 0.3, s * 0.4);
+                        ctx.fillRect(s * 0.55, s * 0.1, s * 0.3, s * 0.4);
+                    }
                 } else if (t.type === "arc") {
                     ctx.beginPath(); ctx.arc(0, 0, s * 0.5, 0, Math.PI * 2); ctx.fill();
                     ctx.strokeStyle = t.def.color;
                     ctx.lineWidth = 2.5;
-                    for (let i = 0; i < 3; i++) {
-                        const a = (i / 3) * Math.PI * 2 + now * 2;
+                    const prongs = 2 + lvl;                      // more emitters per level
+                    for (let i = 0; i < prongs; i++) {
+                        const a = (i / prongs) * Math.PI * 2 + now * (1.6 + lvl * 0.5);
                         ctx.beginPath();
                         ctx.moveTo(Math.cos(a) * s * 0.6, Math.sin(a) * s * 0.6);
                         ctx.lineTo(Math.cos(a) * s * 1.15, Math.sin(a) * s * 1.15);
@@ -1276,24 +1545,43 @@
                 } else if (t.type === "amp") {
                     ctx.strokeStyle = t.def.color;
                     ctx.lineWidth = 2.5;
-                    for (let i = 1; i <= 3; i++) {
+                    for (let i = 1; i <= 2 + lvl; i++) {
                         ctx.globalAlpha = 0.35 + 0.2 * Math.sin(now * 3 - i);
-                        ctx.beginPath(); ctx.arc(0, 0, s * 0.35 * i, 0, Math.PI * 2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(0, 0, s * 0.3 * i, 0, Math.PI * 2); ctx.stroke();
                     }
                     ctx.globalAlpha = 1;
                     ctx.beginPath(); ctx.arc(0, 0, s * 0.24, 0, Math.PI * 2); ctx.fill();
                 }
                 ctx.shadowBlur = 0;
+
+                // white-hot flash during the transformation
+                if (up > 0) {
+                    ctx.globalAlpha = up * 0.75;
+                    ctx.fillStyle = "#fff";
+                    ctx.beginPath(); ctx.arc(0, 0, s * 1.3, 0, Math.PI * 2); ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
                 ctx.restore();
 
                 // level pips
-                if (t.lvl > 1) {
+                if (lvl > 1) {
                     ctx.fillStyle = "#fde047";
-                    for (let i = 0; i < t.lvl - 1; i++) {
+                    for (let i = 0; i < lvl - 1; i++) {
                         ctx.beginPath();
                         ctx.arc(t.px - cell * 0.22 + i * cell * 0.14, t.py + cell * 0.33, cell * 0.045, 0, Math.PI * 2);
                         ctx.fill();
                     }
+                }
+
+                // relay readouts: what a relay gives, and what a node is getting
+                ctx.textAlign = "center";
+                ctx.font = "700 " + Math.max(7, Math.round(cell * 0.19)) + "px Silkscreen, monospace";
+                if (t.def.support) {
+                    ctx.fillStyle = AMP_COLOR;
+                    ctx.fillText("+" + Math.round(ampGive(t).d * 100) + "%", t.px, t.py - cell * 0.46);
+                } else if (t.ampD > 0) {
+                    ctx.fillStyle = AMP_COLOR;
+                    ctx.fillText("+" + Math.round(t.ampD * 100) + "%", t.px, t.py - cell * 0.46);
                 }
             }
             // selected tower's reach
@@ -1433,14 +1721,20 @@
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
-            // bullets
+            // bullets — heavier rounds with a hot core at higher levels
             for (const b of bullets) {
+                const lv = b.lvl || 1;
+                const rad = (b.splash ? 5 : 3.2) * (1 + 0.22 * (lv - 1));
                 ctx.fillStyle = b.color;
                 ctx.shadowColor = b.color;
-                ctx.shadowBlur = 8;
+                ctx.shadowBlur = 8 + (lv - 1) * 5;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.splash ? 5 : 3.2, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, rad, 0, Math.PI * 2);
                 ctx.fill();
+                if (lv >= 2) {
+                    ctx.fillStyle = "#fff";
+                    ctx.beginPath(); ctx.arc(b.x, b.y, rad * (lv >= 3 ? 0.5 : 0.35), 0, Math.PI * 2); ctx.fill();
+                }
                 ctx.shadowBlur = 0;
             }
             // particles
@@ -1450,8 +1744,9 @@
                 ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
             }
             ctx.globalAlpha = 1;
-            // shock rings
+            // shock rings (t may start negative to stagger a burst)
             for (const rg of rings) {
+                if (rg.t < 0) continue;
                 const k = rg.t / 0.45;
                 ctx.globalAlpha = 0.75 * (1 - k);
                 ctx.strokeStyle = rg.color;
@@ -1549,19 +1844,25 @@
                 ? (towerDamage(t) * ((1 + t.def.rampMax) / 2)).toFixed(0) + " dps"
                 : t.def.support ? "support"
                 : (towerDamage(t) * t.def.rate * upRate(t.lvl) * (t.def.chain || 1)).toFixed(0) + " dps";
+            const boost = t.def.support
+                ? '<span class="samp">gives +' + Math.round(ampGive(t).d * 100) + '% dmg</span>'
+                : t.ampD > 0
+                    ? '<span class="samp">+' + Math.round(t.ampD * 100) + '% dmg / +' +
+                      Math.round(t.ampR * 100) + '% range from ' + t.ampN + ' relay' + (t.ampN > 1 ? 's' : '') + '</span>'
+                    : '';
             selPanel.classList.add("show");
             selPanel.innerHTML =
                 '<span class="sname"></span>' +
                 '<span class="sstats">Lv <b>' + t.lvl + '</b> &middot; <b>' + dps + '</b> &middot; range <b>' +
-                (towerRange(t) / cell).toFixed(1) + '</b></span>' +
-                '<button id="modeBtn">Target: ' + t.mode + '</button>' +
-                (canUp ? '<button id="upBtn" class="accent">Upgrade ' + cost + ' cr</button>'
+                (towerRange(t) / cell).toFixed(1) + '</b></span>' + boost +
+                (t.def.support ? '' : '<button id="modeBtn">Target: ' + t.mode + '</button>') +
+                (canUp ? '<button id="upBtn" class="accent">Upgrade &middot; <b>' + cost + '</b></button>'
                        : '<button disabled>Max level</button>') +
                 '<button id="sellBtn">Sell +' + refund + '</button>';
             selPanel.querySelector(".sname").textContent = t.def.name;
 
             const modeBtn = document.getElementById("modeBtn");
-            modeBtn.addEventListener("click", () => {
+            if (modeBtn) modeBtn.addEventListener("click", () => {
                 const modes = ["first", "last", "strong", "close"];
                 t.mode = modes[(modes.indexOf(t.mode) + 1) % modes.length];
                 updateSelPanel(); sndTick(400);
@@ -1574,13 +1875,18 @@
                 upBtn.addEventListener("click", () => {
                     if (credits < cost) return;
                     credits -= cost; t.spent += cost; t.lvl++;
-                    sndBuild(); updateHud(); updateSelPanel(); renderPalette();
+                    upgradeFx(t);
+                    recomputeAmps();
+                    saveRun();
+                    updateHud(); updateSelPanel(); renderPalette();
                 });
             }
             document.getElementById("sellBtn").addEventListener("click", () => {
                 credits += refund;
                 towers = towers.filter(x => x !== t);
                 selected = null;
+                recomputeAmps();
+                saveRun();
                 sndSell(); updateHud(); updateSelPanel(); renderPalette();
             });
         }
@@ -1620,19 +1926,30 @@
             if (liveUpBtn && liveUpBtn.btn.isConnected) {
                 liveUpBtn.btn.disabled = credits < liveUpBtn.cost;
             }
+            // "how many nodes would this level up right now?"
+            const allBtn = document.getElementById("upAllBtn");
+            if (allBtn) {
+                const p = upgradeAllPlan();
+                allBtn.innerHTML = p.total ? "&uarr; All " + p.n + "/" + p.total : "&uarr; All";
+                allBtn.disabled = p.n === 0;
+                allBtn.title = p.n ? "Upgrade " + p.n + " node" + (p.n > 1 ? "s" : "") + " for " + p.cost + " credits"
+                                   : "Nothing affordable to upgrade";
+            }
+            const modeBtn2 = document.getElementById("upModeBtn");
+            if (modeBtn2) modeBtn2.classList.toggle("active", upgradeMode);
         }
 
         function updateHud() {
             refreshAffordability();
             const intEl = document.getElementById("statIntegrity");
             intEl.querySelector("b").textContent = Math.max(0, integrity);
-            intEl.classList.toggle("hurt", integrity <= metaCore() * 0.35);
+            intEl.classList.toggle("hurt", integrity <= maxIntegrity * 0.35);
             document.getElementById("statCredits").textContent = Math.floor(credits);
             document.getElementById("statWave").textContent = wave;
             const nextEl = document.getElementById("statNext");
             if (gameOver) nextEl.innerHTML = "Run over";
             else if (running || spawnQueue.length || enemies.length) nextEl.innerHTML = "Wave <b>active</b>";
-            else if (wave === 0) nextEl.innerHTML = "<b>Build, then send</b>";
+            else if (wave === 0 || nextWaveT <= 0) nextEl.innerHTML = "<b>Build, then send</b>";
             else nextEl.innerHTML = "Next in <b>" + Math.ceil(Math.max(0, nextWaveT)) + "s</b>";
             document.getElementById("muteBtn").textContent = SAVE.muted ? "🔇" : "🔊";
         }
@@ -1807,6 +2124,14 @@
         const sndBoom    = () => throttled(() => noise(0.16, 0.09, 500));
         const sndKill    = () => throttled(() => blip(420, 0.05, 0.03, "triangle"));
         const sndBuild   = () => { blip(520, 0.07, 0.07); blip(780, 0.1, 0.06, "triangle", 0.05); };
+        // rising triad + shimmer, higher and brighter the further you push a node
+        const sndUpgrade = lvl => {
+            const root = 392 * Math.pow(1.26, (lvl || 2) - 2);
+            [0, 4, 7, 12].forEach((semi, i) =>
+                blip(root * Math.pow(2, semi / 12), 0.22, 0.085, "triangle", i * 0.055));
+            blip(root * 4, 0.3, 0.05, "sine", 0.2);
+            noise(0.16, 0.05, 5200);
+        };
         const sndSell    = () => { blip(400, 0.09, 0.06); blip(260, 0.12, 0.05, "triangle", 0.06); };
         const sndBuy     = () => { blip(660, 0.08, 0.08); blip(990, 0.12, 0.07, "triangle", 0.06); };
         const sndTick    = f => blip(f, 0.04, 0.04);
@@ -1826,6 +2151,13 @@
             speedBtn.innerHTML = speed + "&times;";
             speedBtn.classList.toggle("active", speed > 1);
             sndTick(360 + speed * 90);
+        });
+        document.getElementById("upAllBtn").addEventListener("click", () => { audio(); upgradeAll(); });
+        document.getElementById("upModeBtn").addEventListener("click", () => {
+            upgradeMode = !upgradeMode;
+            if (upgradeMode) { armed = null; renderPalette(); }
+            sndTick(upgradeMode ? 620 : 380);
+            updateHud();
         });
         document.getElementById("muteBtn").addEventListener("click", () => {
             SAVE.muted = !SAVE.muted; save(); updateHud();
@@ -1856,7 +2188,7 @@
 
         /* ---------- Boot ---------- */
         layout();
-        newRun();
+        if (!resumeRun()) newRun();   // pick up an unfinished run if there is one
         requestAnimationFrame(tick);
         requestAnimationFrame(draw);
     </script>
