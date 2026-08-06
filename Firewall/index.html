@@ -221,6 +221,13 @@
             width: 10px; height: 10px; border-radius: 2px;
             display: inline-block; margin-right: 7px;
         }
+        .tnote {
+            font-size: 12px;
+            color: var(--ink-dim);
+            margin: 0 0 10px;
+            line-height: 1.5;
+            text-align: left;
+        }
 
         /* ---------- Wave preview ---------- */
         .wavepreview {
@@ -316,6 +323,10 @@
             .selpanel .sstats { font-size: 11px; }
             .wavepreview { gap: 5px; min-height: 0; margin-bottom: 6px; }
             .wpChip, .wpTag { font-size: 10px; padding: 2px 7px; }
+
+            /* overlays cover the screen instead of squeezing into the board */
+            .overlay { position: fixed; inset: 0; border-radius: 0; z-index: 30; }
+            .panel { width: min(520px, 94vw); max-height: 88vh; }
         }
 
         /* Landscape phones: every vertical pixel counts */
@@ -357,6 +368,7 @@
         <button id="sendBtn" class="accent">Send wave</button>
         <button id="upAllBtn" title="Upgrade every node one level, cheapest first">&uarr; All</button>
         <button id="upModeBtn" title="Tap nodes on the board to upgrade them instantly">&uarr; Tap</button>
+        <button id="targetBtn" title="Set targeting for every node of a type">&#127919;</button>
         <button id="speedBtn" title="Game speed">1&times;</button>
         <button id="muteBtn" title="Toggle sound">🔊</button>
         <button id="shopBtn">Upgrades</button>
@@ -374,6 +386,19 @@
                 <div class="btnrow">
                     <button id="retryBtn" class="accent">New run</button>
                     <button id="overShopBtn">Upgrades</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="overlay" id="targetOverlay">
+            <div class="panel">
+                <div class="shophead">
+                    <h2 style="margin:0">TARGETING</h2>
+                </div>
+                <p class="tnote">Sets the rule for every node of that type &mdash; the ones on the board now and the ones you build later.</p>
+                <div id="targetBody"></div>
+                <div class="btnrow" style="margin-top:14px">
+                    <button id="targetCloseBtn">Close</button>
                 </div>
             </div>
         </div>
@@ -488,6 +513,15 @@
         const BASE_TOWERS = ["pulse", "cryo", "cannon"];
         const TOWER_ORDER = ["pulse", "cryo", "cannon", "laser", "arc", "amp"];
 
+        const MODES = ["first", "last", "strong", "close"];
+        const MODE_LABEL = { first: "First", last: "Last", strong: "Strongest", close: "Closest" };
+        const MODE_HELP = {
+            first:  "Whichever virus is furthest along the trace",
+            last:   "The one furthest back, to stop leakers building up",
+            strong: "The highest health target in range",
+            close:  "Whatever is nearest the node"
+        };
+
         // Per-level scaling (level 1 = as built)
         const upDmg   = lvl => Math.pow(1.75, lvl - 1);
         const upRange = lvl => 1 + 0.12 * (lvl - 1);
@@ -528,6 +562,7 @@
         function defaultSave() {
             return {
                 cores: 0, bestWave: 0, totalRuns: 0, muted: false, map: "boot", run: null,
+                targeting: {},          // per node type, remembered between runs
                 up: { dmg: 0, range: 0, income: 0, start: 0, integrity: 0, interest: 0, refund: 0 },
                 unlocked: ["boot"]
             };
@@ -545,11 +580,15 @@
                     muted: !!d.muted,
                     map: d.map || "boot",
                     run: d.run || null,
+                    targeting: Object.assign(def.targeting, d.targeting || {}),
                     up: Object.assign(def.up, d.up || {}),
                     unlocked: Array.isArray(d.unlocked) ? d.unlocked : def.unlocked
                 };
                 for (const k of Object.keys(PERKS)) {
                     SAVE.up[k] = Math.max(0, Math.min(PERKS[k].max, Number(SAVE.up[k]) || 0));
+                }
+                for (const k of Object.keys(SAVE.targeting)) {
+                    if (!MODES.includes(SAVE.targeting[k])) delete SAVE.targeting[k];
                 }
                 if (!SAVE.unlocked.includes("boot")) SAVE.unlocked.push("boot");
                 if (!MAPS.some(m => m.id === SAVE.map && SAVE.unlocked.includes(m.id))) SAVE.map = "boot";
@@ -566,6 +605,24 @@
         const metaInterest = () => 0.03 * SAVE.up.interest;
         const metaRefund   = () => 0.5 + 0.10 * SAVE.up.refund;
         const towerUnlocked = t => BASE_TOWERS.includes(t) || SAVE.unlocked.includes(t);
+
+        /* ---------- Targeting by node type ----------
+           Retuning nodes one at a time is miserable once a board is full, so
+           a type carries its own rule: changing it retargets every node of
+           that type on the board and every one you build afterwards.
+        ---------------------------------------------- */
+        const typeMode = type => SAVE.targeting[type] || "first";
+
+        function setTypeMode(type, mode) {
+            SAVE.targeting[type] = mode;
+            save();
+            let n = 0;
+            for (const t of towers) {
+                if (t.type === type && !t.def.support) { t.mode = mode; n++; }
+            }
+            if (n) saveRun();
+            return n;
+        }
 
         /* ---------- Canvas ---------- */
         const canvas = document.getElementById("board");
@@ -1218,7 +1275,7 @@
                 towers.push({
                     type: armed, def, lvl: 1, tx, ty,
                     px: TX(tx), py: TY(ty), cd: 0, angle: -Math.PI / 2,
-                    spent: def.cost, mode: "first", flash: 0, ramp: 0, upT: 0
+                    spent: def.cost, mode: typeMode(armed), flash: 0, ramp: 0, upT: 0
                 });
                 sndBuild();
                 recomputeAmps();
@@ -1844,6 +1901,7 @@
                 ? (towerDamage(t) * ((1 + t.def.rampMax) / 2)).toFixed(0) + " dps"
                 : t.def.support ? "support"
                 : (towerDamage(t) * t.def.rate * upRate(t.lvl) * (t.def.chain || 1)).toFixed(0) + " dps";
+            const sameType = towers.filter(o => o.type === t.type).length;
             const boost = t.def.support
                 ? '<span class="samp">gives +' + Math.round(ampGive(t).d * 100) + '% dmg</span>'
                 : t.ampD > 0
@@ -1855,7 +1913,9 @@
                 '<span class="sname"></span>' +
                 '<span class="sstats">Lv <b>' + t.lvl + '</b> &middot; <b>' + dps + '</b> &middot; range <b>' +
                 (towerRange(t) / cell).toFixed(1) + '</b></span>' + boost +
-                (t.def.support ? '' : '<button id="modeBtn">Target: ' + t.mode + '</button>') +
+                (t.def.support ? '' : '<button id="modeBtn">Target: ' + MODE_LABEL[t.mode] + '</button>') +
+                (t.def.support || sameType < 2 ? ''
+                    : '<button id="allModeBtn" title="Give every ' + t.def.name + ' this targeting rule">All ' + sameType + '</button>') +
                 (canUp ? '<button id="upBtn" class="accent">Upgrade &middot; <b>' + cost + '</b></button>'
                        : '<button disabled>Max level</button>') +
                 '<button id="sellBtn">Sell +' + refund + '</button>';
@@ -1863,9 +1923,20 @@
 
             const modeBtn = document.getElementById("modeBtn");
             if (modeBtn) modeBtn.addEventListener("click", () => {
-                const modes = ["first", "last", "strong", "close"];
-                t.mode = modes[(modes.indexOf(t.mode) + 1) % modes.length];
+                t.mode = MODES[(MODES.indexOf(t.mode) + 1) % MODES.length];
+                saveRun();
                 updateSelPanel(); sndTick(400);
+            });
+            const allModeBtn = document.getElementById("allModeBtn");
+            if (allModeBtn) allModeBtn.addEventListener("click", () => {
+                const n = setTypeMode(t.type, t.mode);
+                floats.push({
+                    x: corePos.x, y: corePos.y - cell * 1.6,
+                    text: n + " × " + t.def.name.toUpperCase() + " → " + MODE_LABEL[t.mode].toUpperCase(),
+                    t: 1.6, color: t.def.color, size: Math.max(11, Math.round(cell * 0.26))
+                });
+                sndTick(680);
+                updateSelPanel();
             });
             liveUpBtn = null;
             if (canUp) {
@@ -1959,7 +2030,11 @@
         const shopBody = document.getElementById("shopBody");
         let shopTab = "perks";
 
-        function openShop() { renderShop(); shopOverlay.classList.add("show"); }
+        function openShop() {
+            targetOverlay.classList.remove("show");
+            renderShop();
+            shopOverlay.classList.add("show");
+        }
         function renderShop() {
             document.getElementById("shopCores").textContent = SAVE.cores + " cores";
             document.getElementById("tabPerks").classList.toggle("active", shopTab === "perks");
@@ -2022,6 +2097,58 @@
                 } else { btn.textContent = "Unlocked"; btn.className = "max"; btn.disabled = true; }
                 row.appendChild(info); row.appendChild(btn);
                 shopBody.appendChild(row);
+            }
+        }
+
+        /* ---------- Targeting overlay ---------- */
+        const targetOverlay = document.getElementById("targetOverlay");
+        const targetBody = document.getElementById("targetBody");
+
+        function openTargeting() {
+            document.getElementById("shopOverlay").classList.remove("show");
+            renderTargeting();
+            targetOverlay.classList.add("show");
+        }
+
+        function renderTargeting() {
+            targetBody.innerHTML = "";
+            for (const key of TOWER_ORDER) {
+                if (!towerUnlocked(key)) continue;
+                const def = TOWERS[key];
+                if (def.support) continue;                 // relays have nothing to aim at
+                const placed = towers.filter(t => t.type === key).length;
+                const mode = typeMode(key);
+
+                const row = document.createElement("div");
+                row.className = "shoprow";
+                const info = document.createElement("div");
+                info.className = "info";
+                info.innerHTML = '<div class="name"><span class="boardDot" style="background:' + def.color + '"></span></div>' +
+                                 '<div class="desc"></div>';
+                info.querySelector(".name").append(def.name + (placed ? "  ×" + placed : ""));
+                info.querySelector(".desc").textContent = MODE_HELP[mode];
+
+                const btn = document.createElement("button");
+                btn.className = "accent";
+                btn.style.minWidth = "116px";
+                btn.textContent = MODE_LABEL[mode];
+                btn.addEventListener("click", () => {
+                    const next = MODES[(MODES.indexOf(typeMode(key)) + 1) % MODES.length];
+                    const n = setTypeMode(key, next);
+                    sndTick(420 + MODES.indexOf(next) * 70);
+                    if (n) floats.push({
+                        x: corePos.x, y: corePos.y - cell * 1.6,
+                        text: n + " × " + def.name.toUpperCase() + " → " + MODE_LABEL[next].toUpperCase(),
+                        t: 1.6, color: def.color, size: Math.max(11, Math.round(cell * 0.26))
+                    });
+                    renderTargeting();
+                    updateSelPanel();
+                });
+                row.appendChild(info); row.appendChild(btn);
+                targetBody.appendChild(row);
+            }
+            if (!targetBody.children.length) {
+                targetBody.innerHTML = '<p class="tnote">No targeting nodes unlocked yet.</p>';
             }
         }
 
@@ -2152,6 +2279,8 @@
             speedBtn.classList.toggle("active", speed > 1);
             sndTick(360 + speed * 90);
         });
+        document.getElementById("targetBtn").addEventListener("click", () => { audio(); openTargeting(); });
+        document.getElementById("targetCloseBtn").addEventListener("click", () => targetOverlay.classList.remove("show"));
         document.getElementById("upAllBtn").addEventListener("click", () => { audio(); upgradeAll(); });
         document.getElementById("upModeBtn").addEventListener("click", () => {
             upgradeMode = !upgradeMode;
