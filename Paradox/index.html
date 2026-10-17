@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Paradox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #070b18;
+        --panel: #1e293b;
+        --panel-deep: #0f172a;
+        --line: #334155;
+        --ink: #e2e8f0;
+        --ink-dim: #94a3b8;
+        --accent: #60a5fa;   /* blue — the past */
+        --gold: #fbbf24;     /* gold — the present */
+        --good: #4ade80;
+        --bad: #fb7185;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Outfit', sans-serif;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* absolute, not fixed: a fixed element forms its own stacking context,
+       which would trap the top bar beneath the overlays */
+    #app {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .topbar {
+        width: 100%;
+        max-width: 920px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: max(10px, env(safe-area-inset-top)) 16px 0;
+        position: relative;
+        z-index: 20;           /* above overlays, so back + mute work on every screen */
+    }
+    .topbar a, .iconbtn {
+        font-family: 'Silkscreen', monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+        text-decoration: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 10px 4px;
+        min-width: 44px;
+    }
+    .topbar a:hover, .iconbtn:hover { color: var(--ink); }
+    .iconbtn { font-size: 16px; letter-spacing: 0; text-align: right; }
+    .brand {
+        font-family: 'Silkscreen', monospace;
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.22em;
+        color: var(--accent);
+        text-shadow: 0 0 14px rgba(96, 165, 250, 0.45);
+    }
+
+    .hud {
+        display: flex;
+        gap: 22px;
+        justify-content: center;
+        font-family: 'Silkscreen', monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        color: var(--ink-dim);
+        padding-top: 4px;
+        z-index: 3;
+    }
+    .hud b { color: var(--ink); font-weight: 400; }
+    .hud .sc b { color: var(--gold); }
+
+    #stage {
+        flex: 1;
+        width: 100%;
+        position: relative;
+    }
+    canvas#arena {
+        position: absolute;
+        inset: 0;
+        display: block;
+        touch-action: none;
+    }
+
+    /* ---------- Overlays ---------- */
+    .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* top padding clears the top bar, which sits above overlays */
+        padding: max(58px, calc(env(safe-area-inset-top) + 48px)) 16px 16px;
+        background: rgba(7, 11, 24, 0.7);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+        overflow-y: auto;
+        touch-action: pan-y;
+    }
+    .overlay.show { opacity: 1; pointer-events: auto; }
+
+    .panel {
+        width: min(420px, 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        text-align: center;
+        margin: auto;
+    }
+
+    .logo {
+        font-family: 'Silkscreen', monospace;
+        font-weight: 700;
+        font-size: clamp(32px, 9.5vw, 48px);
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        text-shadow: 0 0 26px rgba(96, 165, 250, 0.55);
+        line-height: 1;
+    }
+    .logo.small { font-size: 26px; }
+    .logo .x { color: var(--gold); text-shadow: 0 0 26px rgba(251, 191, 36, 0.6); }
+
+    .blurb {
+        font-size: 15px;
+        line-height: 1.5;
+        margin: 0;
+        max-width: 370px;
+    }
+    .legend {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--ink-dim);
+        text-align: left;
+        max-width: 360px;
+    }
+    .legend li { display: flex; align-items: center; gap: 10px; }
+    .legend b { color: var(--ink); font-weight: 600; }
+    .dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
+    .dot.you { background: var(--gold); box-shadow: 0 0 10px rgba(251, 191, 36, 0.8); }
+    .dot.past { background: #7aa7ff; box-shadow: 0 0 10px rgba(122, 167, 255, 0.8); }
+    .dot.path { width: 14px; height: 2px; border-radius: 0;
+        background: repeating-linear-gradient(90deg, rgba(122, 167, 255, 0.75) 0 3px, transparent 3px 5px); }
+
+    .controls {
+        font-family: 'Silkscreen', monospace;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    button {
+        font-family: 'Silkscreen', monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: transform 0.08s ease;
+    }
+    button:active { transform: scale(0.97); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button.big {
+        font-size: 15px;
+        padding: 15px 34px;
+        min-width: 220px;
+        color: #06142b;
+        background: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 26px rgba(96, 165, 250, 0.45);
+    }
+    button.mid { font-size: 12px; padding: 11px 20px; min-height: 44px; }
+    button.mid.accent { color: var(--accent); border-color: rgba(96, 165, 250, 0.6); }
+
+    .keyhint {
+        font-family: 'Silkscreen', monospace;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        color: #64748b;
+        margin-top: -4px;
+    }
+    .best {
+        font-family: 'Silkscreen', monospace;
+        font-size: 12px;
+        letter-spacing: 0.15em;
+        color: var(--ink-dim);
+    }
+
+    .sub {
+        font-family: 'Silkscreen', monospace;
+        font-size: 15px;
+        letter-spacing: 0.22em;
+        color: var(--bad);
+        text-shadow: 0 0 14px rgba(251, 113, 133, 0.5);
+    }
+    .reason { font-size: 14px; color: var(--ink-dim); margin-top: -6px; }
+    .bigscore {
+        font-weight: 800;
+        font-size: clamp(56px, 18vw, 84px);
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 0 30px rgba(96, 165, 250, 0.5);
+    }
+    .stats { font-size: 13px; color: var(--ink-dim); line-height: 1.6; }
+    .stats b { color: var(--ink); font-weight: 600; }
+    .newbest {
+        font-family: 'Silkscreen', monospace;
+        font-size: 14px;
+        letter-spacing: 0.18em;
+        color: var(--gold);
+        text-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+        animation: glint 1.2s ease-in-out infinite;
+    }
+    @keyframes glint { 50% { opacity: 0.55; } }
+    .rankline {
+        font-family: 'Silkscreen', monospace;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        min-height: 14px;
+    }
+
+    .timeline-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .tl-title {
+        font-family: 'Silkscreen', monospace;
+        font-size: 10px;
+        letter-spacing: 0.2em;
+        color: #64748b;
+    }
+    #timeline { width: 200px; height: 200px; }
+
+    /* ---------- Leaderboard ---------- */
+    .hidden { display: none !important; }
+    .lbbox {
+        width: min(300px, 100%);
+        background: var(--panel-deep);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 16px 12px;
+    }
+    .lb-title {
+        font-family: 'Silkscreen', monospace;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: var(--ink-dim);
+        margin-bottom: 6px;
+    }
+    .lb-rows { font-family: 'Silkscreen', monospace; font-size: 13px; letter-spacing: 0.08em; line-height: 1.75; text-align: left; }
+    .lb-dim { color: var(--ink-dim); font-size: 11px; text-align: center; }
+    .lb-row { display: flex; gap: 14px; }
+    .lb-row .r { color: #64748b; min-width: 3ch; }
+    .lb-row .s { margin-left: auto; }
+    .lb-row.me { color: var(--gold); text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+
+    #lbEntry { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .lb-slots { display: flex; gap: 10px; }
+    .lb-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .lb-slot button {
+        width: 48px;
+        min-height: 34px;
+        padding: 2px;
+        font-size: 11px;
+        color: var(--ink-dim);
+        background: var(--panel-deep);
+    }
+    .lb-letter {
+        width: 48px;
+        padding: 7px 0;
+        font-family: 'Silkscreen', monospace;
+        font-weight: 700;
+        font-size: 26px;
+        text-align: center;
+        color: var(--accent);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    .lb-slot.sel .lb-letter { border-color: var(--accent); box-shadow: 0 0 14px rgba(96, 165, 250, 0.35); }
+    .savestate {
+        font-family: 'Silkscreen', monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        color: var(--ink-dim);
+        min-height: 13px;
+    }
+    .savestate.ok { color: var(--good); }
+    .savestate.err { color: var(--bad); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .newbest { animation: none; }
+        .overlay { transition: none; }
+    }
+    @media (max-height: 560px) {
+        .panel { gap: 8px; }
+        .blurb { font-size: 13px; }
+        .legend { display: none; }
+        .bigscore { font-size: 52px; }
+        #timeline { width: 150px; height: 150px; }
+    }
+</style>
+</head>
+<body>
+<div id="app">
+    <div class="topbar">
+        <a href="/index.html">&larr; Arcade</a>
+        <span class="brand">PARADOX</span>
+        <button class="iconbtn" id="muteBtn" title="Toggle sound" aria-label="Toggle sound">🔊</button>
+    </div>
+    <div class="hud">
+        <span class="sc">SCORE <b id="hudScore">0</b></span>
+        <span>LOOP <b id="hudLoop">1</b></span>
+        <span>BEST <b id="hudBest">0</b></span>
+    </div>
+    <div id="stage"><canvas id="arena"></canvas></div>
+</div>
+
+<!-- Title -->
+<div class="overlay show" id="titleOv">
+    <div class="panel">
+        <div class="logo">PARA<span class="x">D</span>OX</div>
+        <p class="blurb">Grab the hourglass before it runs dry. Then time rewinds &mdash; and your past self replays every move you just made.</p>
+        <ul class="legend">
+            <li><span class="dot you"></span><span><b>You</b>, in the present</span></li>
+            <li><span class="dot past"></span><span><b>Your past selves</b> &mdash; touch one and it's a paradox</span></li>
+            <li><span class="dot path"></span><span>Faint lines show where your past is heading. <b>Brush past</b> an echo for a graze bonus</span></li>
+        </ul>
+        <button class="big" id="startBtn">Begin loop</button>
+        <div class="controls">TOUCH: DRAG ANYWHERE &middot; MOUSE: POINT &middot; KEYS: WASD / ARROWS</div>
+        <div class="best" id="titleBest"></div>
+        <div class="lbbox">
+            <div class="lb-title">TOP 10 · ALL TIME</div>
+            <div class="lb-rows lb-dim" id="titleRows">LOADING&hellip;</div>
+        </div>
+    </div>
+</div>
+
+<!-- Game over -->
+<div class="overlay" id="overOv">
+    <div class="panel">
+        <div class="sub" id="overTitle">PARADOX</div>
+        <div class="reason" id="overReason"></div>
+        <div class="bigscore" id="finalScore">0</div>
+        <div class="stats" id="finalStats"></div>
+        <div class="newbest hidden" id="newBest">&#9733; NEW BEST &#9733;</div>
+        <div class="rankline" id="rankLine"></div>
+
+        <div id="lbEntry" class="hidden">
+            <div class="lb-dim">ENTER YOUR INITIALS</div>
+            <div class="lb-slots" id="lbSlots"></div>
+            <button class="mid accent" id="saveBtn">Save score</button>
+            <div class="savestate" id="saveState"></div>
+        </div>
+
+        <div class="timeline-wrap">
+            <canvas id="timeline" width="400" height="400"></canvas>
+            <div class="tl-title">YOUR TIMELINE</div>
+        </div>
+
+        <div class="lbbox">
+            <div class="lb-title">TOP 10 · ALL TIME</div>
+            <div class="lb-rows lb-dim" id="overRows">LOADING&hellip;</div>
+        </div>
+
+        <button class="big" id="againBtn">Again</button>
+        <div class="keyhint" id="againHint">SPACE / ENTER</div>
+    </div>
+</div>
+
+<!-- Paused -->
+<div class="overlay" id="pauseOv">
+    <div class="panel">
+        <div class="logo small">TIME STOPPED</div>
+        <button class="big" id="resumeBtn">Resume</button>
+    </div>
+</div>
+
+<script src="/js/leaderboard.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   Paradox — every loop, a new you. Grab the hourglass before it
+   runs dry; then time rewinds and each past self replays its
+   exact path. Touch any of them and the timeline collapses.
+   ============================================================ */
+
+const TAU = Math.PI * 2;
+const STEP = 1 / 120;              // fixed simulation step, so replays are exact
+const PR = 0.034;                  // dot radius (arena radius = 1)
+const HIT = PR * 2 * 0.8;          // contact distance, a touch forgiving
+const GRAZE = 0.16;                // near-miss distance
+const CR = 0.07;                   // hourglass pickup radius
+const SPEED = 1.5;                 // arena radii per second
+const LIMIT_R = 1 - PR;
+const GRACE = 0.22;                // no collisions this early in a loop
+const READY_T = 0.8, READY_FIRST = 0.45, REWIND_T = 0.72, DIE_T = 1.25;
+const JOY_R = 46;                  // touch joystick throw, in px
+const BOARD = "paradox";
+const SAVE_KEY = "paradox.v1";
+const INITIALS_KEY = "paradox_initials";
+const INITIALS_FALLBACK = ["paradox_initials", "lockstep_initials", "towerstack_initials"];
+const BAD_INITIALS = ["ASS", "SEX", "FUK", "FUC", "FCK", "SHT", "DIK", "DCK", "CUM", "TIT", "FAG", "NIG", "KKK", "CNT"];
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+const INI_RE = /^[A-Z ][A-Z ][A-Z ]$/;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// The hourglass gets a little less patient as the loops pile up
+const limitFor = L => Math.max(3.4, 5.2 - 0.06 * (L - 1));
+
+/* ---------- Persistence ---------- */
+let SAVE = { best: 0, bestLoop: 0, runs: 0, muted: false };
+try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+    if (d) SAVE = { best: Number(d.best) || 0, bestLoop: Number(d.bestLoop) || 0, runs: Number(d.runs) || 0, muted: !!d.muted };
+} catch (e) { /* fresh save */ }
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
+
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const easeInOut = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+
+/* ============================================================
+   Audio
+   A ticking clock, a slow pad that walks a chord progression as
+   you survive, glassy bells for each hourglass, a reverse-swell
+   rewind, and a tape-stop when time collapses. All of it runs
+   through a gentle compressor and a generated room reverb.
+   ============================================================ */
+let AC = null, master = null, dry = null, wet = null, noiseBuf = null, crushCurve = null;
+let pad = null;
+
+function initAudio() {
+    if (AC) { if (AC.state === "suspended" && !document.hidden) AC.resume(); return; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+        AC = new Ctx();
+        const comp = AC.createDynamicsCompressor();
+        comp.threshold.value = -18; comp.knee.value = 14; comp.ratio.value = 3.5;
+        comp.attack.value = 0.004; comp.release.value = 0.25;
+        master = AC.createGain();
+        master.gain.value = SAVE.muted ? 0 : 0.9;
+        comp.connect(master);
+        master.connect(AC.destination);
+        dry = AC.createGain();
+        dry.connect(comp);
+        const verb = AC.createConvolver();
+        verb.buffer = makeImpulse(2.6, 2.6);
+        wet = AC.createGain();
+        wet.gain.value = 0.34;
+        wet.connect(verb);
+        verb.connect(comp);
+        noiseBuf = makeNoise(1.5);
+        crushCurve = new Float32Array(1024);
+        for (let i = 0; i < 1024; i++) { const x = i / 1023 * 2 - 1; crushCurve[i] = Math.round(x * 4) / 4; }
+    } catch (e) { AC = null; }
+}
+
+function makeImpulse(seconds, decay) {
+    const len = Math.floor(AC.sampleRate * seconds);
+    const buf = AC.createBuffer(2, len, AC.sampleRate);
+    for (let c = 0; c < 2; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+}
+function makeNoise(seconds) {
+    const len = Math.floor(AC.sampleRate * seconds);
+    const buf = AC.createBuffer(1, len, AC.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+}
+
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+// muted means no audio work at all, not just silence — kinder to phone batteries
+const ready = () => AC && dry && !SAVE.muted;
+
+function voiceOut(vol, at, decay, send) {
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol, at + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+    g.connect(dry);
+    if (send) { const s = AC.createGain(); s.gain.value = send; g.connect(s); s.connect(wet); }
+    return g;
+}
+function osc(type, freq, at, stop, dest, gain) {
+    const o = AC.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, at);
+    if (gain !== undefined) { const g = AC.createGain(); g.gain.value = gain; o.connect(g); g.connect(dest); }
+    else o.connect(dest);
+    o.start(at); o.stop(stop);
+    return o;
+}
+function noiseBurst(at, dur, vol, type, f0, f1, q, dest, send) {
+    const n = AC.createBufferSource();
+    n.buffer = noiseBuf;
+    const f = AC.createBiquadFilter();
+    f.type = type;
+    f.Q.value = q || 1;
+    f.frequency.setValueAtTime(f0, at);
+    if (f1) f.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    n.connect(f); f.connect(g); g.connect(dest || dry);
+    if (send) { const s = AC.createGain(); s.gain.value = send; g.connect(s); s.connect(wet); }
+    n.start(at, Math.random() * 0.8, dur + 0.05);
+}
+
+// Glass bell with inharmonic partials and a long, wet tail
+function bell(midi, vol, delay, decay) {
+    if (!ready()) return;
+    const at = AC.currentTime + (delay || 0);
+    const dec = decay || 2;
+    const f = mtof(midi);
+    const out = voiceOut(vol, at, dec, 0.9);
+    [[1, 1], [2.76, 0.42], [5.4, 0.2], [8.93, 0.08]].forEach(([r, g], i) => {
+        const pg = AC.createGain();
+        pg.gain.setValueAtTime(g, at);
+        pg.gain.exponentialRampToValueAtTime(0.0001, at + dec / (1 + i * 0.9));
+        pg.connect(out);
+        osc("sine", f * r, at, at + dec + 0.05, pg);
+    });
+}
+
+function pluck(midi, vol, delay, decay) {
+    if (!ready()) return;
+    const at = AC.currentTime + (delay || 0);
+    const dec = decay || 0.6;
+    const f = mtof(midi);
+    const out = voiceOut(vol, at, dec, 0.5);
+    const lp = AC.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(Math.min(9000, f * 8), at);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(300, f * 2), at + dec * 0.6);
+    lp.connect(out);
+    osc("sine", f, at, at + dec + 0.05, lp);
+    osc("triangle", f * 2, at, at + dec + 0.05, lp, 0.12);
+}
+
+function thump(vol, delay) {
+    if (!ready()) return;
+    const at = AC.currentTime + (delay || 0);
+    const g = AC.createGain();
+    g.gain.setValueAtTime(vol, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.32);
+    g.connect(dry);
+    const o = AC.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(140, at);
+    o.frequency.exponentialRampToValueAtTime(42, at + 0.24);
+    o.connect(g);
+    o.start(at); o.stop(at + 0.35);
+}
+
+/* ---------- The pad: a chord progression that walks as you survive ---------- */
+const PROG = [
+    { pad: [45, 52, 60] },   // Am
+    { pad: [41, 48, 57] },   // F
+    { pad: [48, 55, 64] },   // C
+    { pad: [43, 50, 59] }    // G
+];
+// Each hourglass rings the next note of a melody that sits on the chord underneath
+const MELODY = [72, 76, 77, 81, 79, 76, 74, 79];
+const chordFor = L => PROG[Math.floor((L - 1) / 2) % PROG.length];
+const grabNote = L => MELODY[(L - 1) % MELODY.length] + (Math.floor((L - 1) / 8) % 2) * 12;
+
+function padStart(L) {
+    if (!ready() || pad) return;
+    const at = AC.currentTime;
+    const gain = AC.createGain();
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.05, at + 1.4);
+    const filter = AC.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.Q.value = 0.8;
+    filter.frequency.value = 520;
+    filter.connect(gain);
+    gain.connect(dry);
+    const s = AC.createGain(); s.gain.value = 0.7; gain.connect(s); s.connect(wet);
+    const lfo = AC.createOscillator();
+    lfo.frequency.value = 0.11;
+    const lfoG = AC.createGain();
+    lfoG.gain.value = 160;
+    lfo.connect(lfoG); lfoG.connect(filter.frequency);
+    lfo.start(at);
+    const oscs = [];
+    chordFor(L).pad.forEach(m => [-7, 7].forEach(cents => {
+        const o = AC.createOscillator();
+        o.type = "triangle";
+        o.frequency.value = mtof(m);
+        o.detune.value = cents;
+        o.connect(filter);
+        o.start(at);
+        oscs.push({ o, f: mtof(m) });
+    }));
+    pad = { oscs, gain, filter, lfo, cut: 520 };
+}
+
+function padLoop(L) {
+    if (!pad) return;
+    const at = AC.currentTime;
+    const ch = chordFor(L).pad;
+    pad.oscs.forEach((p, j) => {
+        p.f = mtof(ch[Math.floor(j / 2)]);
+        p.o.frequency.cancelScheduledValues(at);
+        p.o.frequency.setTargetAtTime(p.f, at, 0.12);
+    });
+    // the filter opens as the loops stack up: the room gets brighter and tenser
+    pad.cut = 520 + Math.min(L, 24) * 55;
+    pad.filter.frequency.cancelScheduledValues(at);
+    pad.filter.frequency.setTargetAtTime(pad.cut, at, 0.3);
+}
+
+// Tape stop: everything bends down to nothing
+function tapeStop(dur) {
+    if (!ready()) return;
+    const at = AC.currentTime;
+    if (pad) {
+        const p = pad; pad = null;
+        p.oscs.forEach(v => {
+            v.o.frequency.cancelScheduledValues(at);
+            v.o.frequency.setValueAtTime(v.f, at);
+            v.o.frequency.exponentialRampToValueAtTime(5, at + dur);
+            v.o.stop(at + dur + 0.25);
+        });
+        p.filter.frequency.cancelScheduledValues(at);
+        p.filter.frequency.setValueAtTime(p.cut, at);
+        p.filter.frequency.exponentialRampToValueAtTime(70, at + dur);
+        p.gain.gain.cancelScheduledValues(at);
+        p.gain.gain.setValueAtTime(0.06, at);
+        p.gain.gain.exponentialRampToValueAtTime(0.0001, at + dur + 0.2);
+        p.lfo.stop(at + dur + 0.25);
+    }
+    // a voice made just to fall
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.13, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    const lp = AC.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(2400, at);
+    lp.frequency.exponentialRampToValueAtTime(140, at + dur);
+    lp.connect(g); g.connect(dry);
+    const s = AC.createGain(); s.gain.value = 0.4; g.connect(s); s.connect(wet);
+    const o = AC.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(mtof(57), at);
+    o.frequency.exponentialRampToValueAtTime(16, at + dur);
+    o.connect(lp);
+    o.start(at); o.stop(at + dur + 0.05);
+}
+
+function padFadeOut() {
+    if (!pad || !AC) return;          // not ready(): this must work right after muting
+    const at = AC.currentTime, p = pad; pad = null;
+    p.gain.gain.cancelScheduledValues(at);
+    p.gain.gain.setValueAtTime(0.05, at);
+    p.gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.8);
+    p.oscs.forEach(v => v.o.stop(at + 0.85));
+    p.lfo.stop(at + 0.85);
+}
+
+/* ---------- Effects ---------- */
+// Woodblock tick-tock. Hurries and brightens when the sand is nearly gone.
+function sndTick(hi, urgent) {
+    if (!ready()) return;
+    const at = AC.currentTime;
+    const f = (hi ? 2050 : 1480) * (urgent ? 1.18 : 1);
+    const out = voiceOut(urgent ? 0.085 : 0.05, at, 0.06, 0.15);
+    osc("sine", f, at, at + 0.07, out);
+    osc("sine", f * 2.9, at, at + 0.03, out, 0.15);
+    noiseBurst(at, 0.012, urgent ? 0.05 : 0.03, "bandpass", f * 1.6, 0, 2);
+}
+
+function sndGo() {
+    if (!ready()) return;
+    // a stopwatch's double click, with a low breath underneath
+    noiseBurst(AC.currentTime, 0.01, 0.12, "highpass", 3500);
+    noiseBurst(AC.currentTime + 0.055, 0.01, 0.09, "highpass", 3800);
+    thump(0.12, 0.02);
+}
+
+function sndGrab(L) {
+    const n = grabNote(L);
+    bell(n, 0.13, 0, 2.2);
+    bell(n + 12, 0.045, 0.05, 1.6);
+    pluck(n - 12, 0.14, 0, 0.9);
+    if (ready()) noiseBurst(AC.currentTime, 0.5, 0.05, "bandpass", 3000, 11000, 1.5, null, 0.9);
+    thump(0.14);
+}
+
+// Time running backwards: a swell that builds instead of decays, a
+// chirping tape spool, and a soft landing when the loop resets
+function sndRewind() {
+    if (!ready()) return;
+    const at = AC.currentTime, dur = REWIND_T * 0.9;
+    const n = AC.createBufferSource();
+    n.buffer = noiseBuf;
+    const bp = AC.createBiquadFilter();
+    bp.type = "bandpass"; bp.Q.value = 1.1;
+    bp.frequency.setValueAtTime(450, at);
+    bp.frequency.exponentialRampToValueAtTime(7500, at + dur);
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.15, at + dur);
+    g.gain.linearRampToValueAtTime(0.0001, at + dur + 0.035);
+    n.connect(bp); bp.connect(g); g.connect(dry);
+    const s = AC.createGain(); s.gain.value = 0.6; g.connect(s); s.connect(wet);
+    n.start(at, Math.random() * 0.4, dur + 0.1);
+
+    const o = AC.createOscillator();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(150, at);
+    o.frequency.exponentialRampToValueAtTime(1500, at + dur);
+    const lfo = AC.createOscillator();
+    lfo.frequency.value = 23;
+    const lg = AC.createGain();
+    lg.gain.value = 35;
+    lfo.connect(lg); lg.connect(o.frequency);
+    const og = AC.createGain();
+    og.gain.setValueAtTime(0.0001, at);
+    og.gain.exponentialRampToValueAtTime(0.055, at + dur * 0.75);
+    og.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(og); og.connect(dry);
+    o.start(at); o.stop(at + dur + 0.05);
+    lfo.start(at); lfo.stop(at + dur + 0.05);
+    thump(0.26, dur);
+}
+
+function sndGraze(close) {
+    if (!ready()) return;
+    const at = AC.currentTime;
+    noiseBurst(at, 0.1, 0.07 + close * 0.05, "bandpass", 1600 + close * 1200, 7500, 2.2, null, 0.3);
+    bell(96 + Math.round(close * 3), 0.022, 0.02, 0.8);
+}
+
+let lastVanish = 0;
+function sndVanish() {
+    if (!ready()) return;
+    const now = AC.currentTime;
+    if (now - lastVanish < 0.07) return;
+    lastVanish = now;
+    bell(100, 0.012, 0, 0.7);
+}
+
+function sndParadox() {
+    if (!ready()) return;
+    const at = AC.currentTime;
+    // the glitch: crushed noise for a moment, then the tape stops
+    const n = AC.createBufferSource();
+    n.buffer = noiseBuf;
+    const ws = AC.createWaveShaper();
+    ws.curve = crushCurve;
+    const lp = AC.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 3200;
+    const g = AC.createGain();
+    g.gain.setValueAtTime(0.16, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.24);
+    n.connect(ws); ws.connect(lp); lp.connect(g); g.connect(dry);
+    n.start(at, Math.random() * 0.5, 0.26);
+    const b = AC.createGain();
+    b.gain.setValueAtTime(0.42, at);
+    b.gain.exponentialRampToValueAtTime(0.0001, at + 0.7);
+    b.connect(dry);
+    const bs = AC.createGain(); bs.gain.value = 0.5; b.connect(bs); bs.connect(wet);
+    const o = AC.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(115, at);
+    o.frequency.exponentialRampToValueAtTime(30, at + 0.6);
+    o.connect(b);
+    o.start(at); o.stop(at + 0.72);
+    tapeStop(1.0);
+}
+
+function sndTimeout() {
+    bell(81, 0.1, 0, 1.4);
+    bell(81, 0.09, 0.2, 1.6);
+    tapeStop(1.1);
+}
+
+function sndStart() { pluck(69, 0.16); pluck(76, 0.16, 0.08); bell(81, 0.05, 0.16, 1.6); }
+function sndSaved() { [72, 76, 79, 84].forEach((n, i) => pluck(n, 0.18, i * 0.07, 0.9)); bell(96, 0.05, 0.3, 1.8); }
+function sndNewBest() { [76, 79, 84, 88].forEach((n, i) => bell(n + 12, 0.06, i * 0.08, 1.8)); }
+function sndUi(i) { pluck(79 + (i || 0) * 2, 0.1, 0, 0.35); }
+
+function haptic(p) {
+    const ua = navigator.userActivation;
+    if (ua && !ua.hasBeenActive) return;      // browsers refuse until a real tap
+    try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {}
+}
+
+/* ============================================================
+   Game state
+   ============================================================ */
+let phase = "title";       // title | ready | live | rewind | dying | over | paused
+let pausedFrom = null;
+let phaseT = 0, readyDur = READY_FIRST;
+let loop = 1, limit = limitFor(1), timeLeft = limit;
+let loops = [];            // completed loops: { path: Float32Array [x,y,...], len }
+let starts = [];           // every loop's starting point (spawn fairness)
+let rec = [];              // the loop being recorded
+let stepI = 0;             // steps elapsed in the live loop
+let px = 0, py = 0, vx = 0, vy = 0;
+let crystal = { x: 0, y: 0, born: 0 };
+let score = 0, grazes = 0, fastest = Infinity, runId = 0;
+let grazed = new Set();
+let nextTick = 0.5, tickHi = true;
+let rewindFrom = 0, rewindFrac = 1;
+let death = null;
+let acc = 0;
+let newBestRun = false, bestAnnounced = false, runStartBest = 0;
+
+// fx (arena coordinates)
+let parts = [], rings = [], floats = [], sparks = [];
+let shake = 0, flashA = 0, flashColor = "#fff", calloutText = "", calloutT = 0, calloutColor = "#fff";
+
+/* ---------- Colour helpers ---------- */
+function hsl2rgb(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+// newest echo is blue, the oldest drift toward violet
+function echoRGB(k, n) {
+    const age = n <= 1 ? 0 : (n - 1 - k) / (n - 1);
+    const hue = Math.round((215 + 70 * age) / 5) * 5;
+    return hsl2rgb(hue, 95, 68).join(",");
+}
+const GOLD = "251,191,36";
+
+const glowCache = new Map();
+function glowSprite(rgb) {
+    let c = glowCache.get(rgb);
+    if (c) return c;
+    c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d");
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, "rgba(" + rgb + ",0.9)");
+    gr.addColorStop(0.3, "rgba(" + rgb + ",0.35)");
+    gr.addColorStop(1, "rgba(" + rgb + ",0)");
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 64, 64);
+    glowCache.set(rgb, c);
+    return c;
+}
+
+/* ============================================================
+   Run lifecycle
+   ============================================================ */
+function startRun() {
+    initAudio();
+    runId++;
+    loops = []; starts = [{ x: 0, y: 0 }]; rec = [];
+    loop = 1;
+    px = 0; py = 0; vx = 0; vy = 0;
+    score = 0; grazes = 0; fastest = Infinity;
+    newBestRun = false; bestAnnounced = false; runStartBest = SAVE.best;
+    parts = []; rings = []; floats = []; sparks = [];
+    death = null; calloutT = 0; flashA = 0;
+    placeCrystal();
+    enterReady(READY_FIRST);
+    padFadeOut();
+    padStart(1);
+    padLoop(1);
+    sndStart();
+    haptic(10);
+    hideAllOverlays();
+    updateHud();
+}
+
+function enterReady(dur) {
+    phase = "ready";
+    phaseT = 0;
+    readyDur = dur;
+    limit = limitFor(loop);
+    timeLeft = limit;
+    vx = 0; vy = 0;
+    callout("LOOP " + loop, "#ffffff");
+}
+
+function goLive() {
+    phase = "live";
+    phaseT = 0;
+    acc = 0;
+    stepI = 0;
+    rec = [px, py];
+    grazed = new Set();
+    nextTick = 0.5; tickHi = true;
+    sndGo();
+}
+
+// Spawn the hourglass far from every loop's starting point, so no past
+// self ever materialises on top of where you'll begin next
+function placeCrystal() {
+    let best = null, bestD = -1;
+    for (let i = 0; i < 70; i++) {
+        const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 0.8;
+        const x = Math.cos(a) * r, y = Math.sin(a) * r;
+        const dp = Math.hypot(x - px, y - py);
+        if (dp < 0.55 || dp > 1.45) continue;
+        let m = Infinity;
+        for (const s of starts) m = Math.min(m, Math.hypot(x - s.x, y - s.y));
+        if (m > bestD) { bestD = m; best = { x, y }; }
+    }
+    if (!best) {
+        const a = Math.atan2(-py, -px);
+        best = { x: Math.cos(a) * 0.6, y: Math.sin(a) * 0.6 };
+    }
+    crystal = { x: best.x, y: best.y, born: performance.now() / 1000 };
+}
+
+/* ---------- Input ---------- */
+const keys = { up: false, down: false, left: false, right: false };
+let mouseOn = false, mx = 0, my = 0;
+let joy = null;            // { id, ax, ay, cx, cy }
+
+function desiredVelocity() {
+    const kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    const ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+    if (kx || ky) { const l = Math.hypot(kx, ky); return [kx / l * SPEED, ky / l * SPEED]; }
+    if (joy) {
+        const dx = joy.cx - joy.ax, dy = joy.cy - joy.ay, d = Math.hypot(dx, dy);
+        if (d < 3) return [0, 0];
+        const m = Math.min(1, d / JOY_R);
+        return [dx / d * m * SPEED, dy / d * m * SPEED];
+    }
+    if (mouseOn) {
+        const dx = mx - px, dy = my - py, d = Math.hypot(dx, dy);
+        if (d < 0.004) return [0, 0];
+        const sp = Math.min(SPEED, d * 9);
+        return [dx / d * sp, dy / d * sp];
+    }
+    return [0, 0];
+}
+
+/* ---------- One fixed step of the present ---------- */
+function simStep() {
+    const [dvx, dvy] = desiredVelocity();
+    const k = Math.min(1, 22 * STEP);
+    vx += (dvx - vx) * k;
+    vy += (dvy - vy) * k;
+    px += vx * STEP;
+    py += vy * STEP;
+    const r = Math.hypot(px, py);
+    if (r > LIMIT_R) {
+        px *= LIMIT_R / r; py *= LIMIT_R / r;
+        const nx = px / LIMIT_R, ny = py / LIMIT_R, vn = vx * nx + vy * ny;
+        if (vn > 0) { vx -= vn * nx; vy -= vn * ny; }
+    }
+    stepI++;
+    rec.push(px, py);
+    timeLeft -= STEP;
+    const t = stepI * STEP;
+
+    // the past replays, step for step
+    const n = loops.length;
+    for (let e = 0; e < n; e++) {
+        const L = loops[e];
+        if (stepI === L.len) {           // this echo reached its hourglass
+            const ex = L.path[2 * (L.len - 1)], ey = L.path[2 * (L.len - 1) + 1];
+            rings.push({ x: ex, y: ey, r0: PR, r1: PR * 4, life: 0.4, max: 0.4, rgb: echoRGB(e, n), w: 2 });
+            sndVanish();
+            continue;
+        }
+        if (stepI > L.len) continue;
+        const ex = L.path[2 * stepI], ey = L.path[2 * stepI + 1];
+        const d = Math.hypot(ex - px, ey - py);
+        if (t > GRACE && d < HIT) { die("paradox", e, ex, ey); return; }
+        if (d < GRAZE && !grazed.has(e)) {
+            grazed.add(e);
+            grazes++;
+            score += 3;
+            const close = clamp(1 - (d - HIT) / (GRAZE - HIT), 0, 1);
+            sparks.push({ x0: px, y0: py, x1: ex, y1: ey, life: 0.18, max: 0.18 });
+            floats.push({ x: (px + ex) / 2, y: (py + ey) / 2 - 0.05, text: "GRAZE +3", life: 0.7, max: 0.7, color: "#e0f2fe", size: 0.065 });
+            sndGraze(close);
+            haptic(6);
+            updateHud();
+        }
+    }
+
+    if (Math.hypot(crystal.x - px, crystal.y - py) < PR + CR * 0.9) { grab(); return; }
+    if (timeLeft <= 0) { timeLeft = 0; die("timeout"); return; }
+
+    if (t >= nextTick) {
+        const urgent = timeLeft < 1.5;
+        sndTick(tickHi, urgent);
+        tickHi = !tickHi;
+        nextTick += urgent ? 0.25 : 0.5;
+    }
+}
+
+function grab() {
+    const used = stepI * STEP;
+    const pts = 10 + Math.round(Math.max(0, timeLeft) * 4);
+    score += pts;
+    fastest = Math.min(fastest, used);
+    loops.push({ path: Float32Array.from(rec), len: rec.length / 2 });
+    starts.push({ x: px, y: py });
+
+    // shatter the glass
+    for (let i = 0; i < 26; i++) {
+        const a = Math.random() * TAU, sp = rand(0.4, 1.4);
+        parts.push({ x: crystal.x, y: crystal.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                     life: rand(0.4, 0.9), max: 0.9, rgb: i % 3 ? GOLD : "255,255,255", size: rand(0.008, 0.016) });
+    }
+    rings.push({ x: crystal.x, y: crystal.y, r0: CR, r1: CR * 5, life: 0.5, max: 0.5, rgb: "255,236,179", w: 4 });
+    floats.push({ x: crystal.x, y: crystal.y - 0.1, text: "+" + pts, life: 1.0, max: 1.0, color: "#fde68a", size: 0.1 });
+    floats.push({ x: crystal.x, y: crystal.y + 0.02, text: timeLeft.toFixed(1) + "s LEFT", life: 0.9, max: 0.9, color: "#94a3b8", size: 0.05 });
+    flashA = 0.18; flashColor = "#fde68a";
+    shake = Math.max(shake, 3);
+    sndGrab(loop);
+    haptic(14);
+
+    if (!bestAnnounced && runStartBest > 0 && score > runStartBest) {
+        bestAnnounced = true;
+        sndNewBest();
+        floats.push({ x: 0, y: -0.55, text: "NEW BEST", life: 1.4, max: 1.4, color: "#fbbf24", size: 0.09 });
+    }
+
+    rewindFrom = stepI;
+    rewindFrac = timeLeft / limit;
+    phase = "rewind";
+    phaseT = 0;
+    setTimeout(() => sndRewind(), 90);
+    updateHud();
+}
+
+function beginNextLoop() {
+    loop++;
+    placeCrystal();
+    enterReady(READY_T);
+    padLoop(loop);
+    updateHud();
+}
+
+function die(kind, e, ex, ey) {
+    phase = "dying";
+    phaseT = 0;
+    // jagged cracks radiating from the moment of contact
+    const cracks = [];
+    for (let i = 0; i < 9; i++) {
+        const a = i / 9 * TAU + rand(-0.2, 0.2);
+        const pts = [[0, 0]];
+        let r = 0;
+        for (let j = 0; j < 5; j++) {
+            r += rand(0.06, 0.13);
+            pts.push([Math.cos(a + rand(-0.3, 0.3)) * r, Math.sin(a + rand(-0.3, 0.3)) * r]);
+        }
+        cracks.push(pts);
+    }
+    death = { kind, e, ex, ey, x: px, y: py, cracks };
+    if (kind === "paradox") {
+        sndParadox();
+        haptic([40, 30, 90]);
+        shake = 12;
+        flashA = 0.45; flashColor = "#fb7185";
+        rings.push({ x: (px + ex) / 2, y: (py + ey) / 2, r0: PR, r1: 0.7, life: 0.8, max: 0.8, rgb: "251,113,133", w: 5 });
+    } else {
+        sndTimeout();
+        haptic([60, 40, 60]);
+        shake = 6;
+        flashA = 0.3; flashColor = "#fb7185";
+    }
+    SAVE.runs++;
+    if (score > SAVE.best) { SAVE.best = score; newBestRun = true; }
+    SAVE.bestLoop = Math.max(SAVE.bestLoop, loops.length);
+    persist();
+    updateHud();
+}
+
+function callout(text, color) { calloutText = text; calloutColor = color; calloutT = 1; }
+
+/* ---------- Pause when the tab hides ---------- */
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        if (phase === "live" || phase === "ready" || phase === "rewind") {
+            pausedFrom = phase;
+            phase = "paused";
+            document.getElementById("pauseOv").classList.add("show");
+        }
+        if (AC && AC.state === "running") AC.suspend();
+    } else if (AC && phase !== "paused") {
+        AC.resume();
+    }
+});
+function resume() {
+    if (phase !== "paused") return;
+    phase = pausedFrom || "ready";
+    pausedFrom = null;
+    acc = 0;
+    lastFrame = performance.now();
+    joy = null;
+    keys.up = keys.down = keys.left = keys.right = false;
+    if (AC) AC.resume();
+    document.getElementById("pauseOv").classList.remove("show");
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+const stage = document.getElementById("stage");
+const canvas = document.getElementById("arena");
+const ctx = canvas.getContext("2d");
+let cw = 0, ch = 0, dpr = 1, CX = 0, CY = 0, R = 1;
+
+function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    cw = stage.clientWidth;
+    ch = stage.clientHeight;
+    canvas.width = Math.round(cw * dpr);
+    canvas.height = Math.round(ch * dpr);
+    canvas.style.width = cw + "px";
+    canvas.style.height = ch + "px";
+}
+window.addEventListener("resize", resize);
+
+const X = x => CX + x * R;
+const Y = y => CY + y * R;
+// Banners go above the dial when there's room, so they never sit on the hourglass
+const bannerY = () => (CY - R * 1.2 > 14 ? CY - R * 1.2 : CY - R * 0.62);
+
+function draw(t) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    CX = cw / 2; CY = ch / 2;
+    R = Math.min(cw, ch) * 0.43;
+    if (shake > 0.2 && !reduceMotion) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
+    drawFace(t);
+    if (phase === "title") drawAttract(t);
+    else drawRun(t);
+    drawFx();
+    drawJoystick();
+
+    if (phase === "rewind") drawRewindFx(t);
+    if (phase === "dying" || phase === "over") drawDeathFx();
+
+    if (flashA > 0.01) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.globalAlpha = flashA;
+        ctx.fillStyle = flashColor;
+        ctx.fillRect(0, 0, cw, ch);
+        ctx.globalAlpha = 1;
+    }
+}
+
+/* The arena is a clock face; its rim is the loop's timer */
+function drawFace(t) {
+    const bg = ctx.createRadialGradient(CX, CY, R * 0.1, CX, CY, R * 1.9);
+    bg.addColorStop(0, "rgba(37,58,110,0.35)");
+    bg.addColorStop(1, "rgba(7,11,24,0)");
+    ctx.fillStyle = bg;
+    ctx.fillRect(-20, -20, cw + 40, ch + 40);
+
+    const face = ctx.createRadialGradient(CX, CY - R * 0.2, R * 0.1, CX, CY, R);
+    face.addColorStop(0, "#14213f");
+    face.addColorStop(1, "#0b1329");
+    ctx.fillStyle = face;
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, TAU); ctx.fill();
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(96,165,250,0.07)";
+    for (const f of [0.35, 0.7]) { ctx.beginPath(); ctx.arc(CX, CY, R * f, 0, TAU); ctx.stroke(); }
+
+    // minute and hour marks
+    ctx.beginPath();
+    for (let i = 0; i < 60; i++) {
+        const a = i / 60 * TAU;
+        const hour = i % 5 === 0;
+        const r1 = R * 0.985, r2 = R * (hour ? 0.93 : 0.965);
+        ctx.moveTo(CX + Math.cos(a) * r1, CY + Math.sin(a) * r1);
+        ctx.lineTo(CX + Math.cos(a) * r2, CY + Math.sin(a) * r2);
+    }
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(148,163,184,0.28)";
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(96,165,250,0.35)";
+    ctx.beginPath(); ctx.arc(CX, CY, R, 0, TAU); ctx.stroke();
+
+    // loop number, huge and faint, like a watermark on the dial
+    if (phase !== "title") {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "800 " + Math.round(R * 0.62) + "px Outfit, sans-serif";
+        ctx.fillStyle = "rgba(96,165,250,0.06)";
+        ctx.fillText(String(loop), CX, CY + R * 0.03);
+    }
+
+    // timer ring
+    let frac = 1;
+    if (phase === "live" || phase === "dying" || phase === "over") frac = clamp(timeLeft / limit, 0, 1);
+    else if (phase === "rewind") frac = rewindFrac + (1 - rewindFrac) * easeInOut(clamp(phaseT / REWIND_T, 0, 1));
+    else if (phase === "paused" && pausedFrom === "live") frac = clamp(timeLeft / limit, 0, 1);
+    const tr = R * 1.045, tw = Math.max(3, R * 0.03);
+    ctx.lineWidth = tw;
+    ctx.strokeStyle = "rgba(30,41,59,0.9)";
+    ctx.beginPath(); ctx.arc(CX, CY, tr, 0, TAU); ctx.stroke();
+    if (phase !== "title") {
+        const urgent = frac < 0.3 && phase === "live";
+        const rgb = frac > 0.5 ? "96,165,250" : frac > 0.25 ? "251,191,36" : "251,113,133";
+        const pulse = urgent ? 0.6 + 0.4 * Math.sin(t * 18) : 1;
+        ctx.strokeStyle = "rgba(" + rgb + "," + pulse + ")";
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(" + rgb + ",0.8)";
+        ctx.shadowBlur = 10;
+        const a0 = -Math.PI / 2, a1 = a0 + frac * TAU;
+        if (frac > 0.002) { ctx.beginPath(); ctx.arc(CX, CY, tr, a0, a1); ctx.stroke(); }
+        ctx.shadowBlur = 0;
+        ctx.lineCap = "butt";
+        const hx = CX + Math.cos(a1) * tr, hy = CY + Math.sin(a1) * tr;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(hx, hy, tw * 0.55, 0, TAU); ctx.fill();
+    }
+}
+
+function drawDot(x, y, rgb, alpha, scale) {
+    const r = PR * R * (scale || 1);
+    const sx = X(x), sy = Y(y);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(glowSprite(rgb), sx - r * 3.2, sy - r * 3.2, r * 6.4, r * 6.4);
+    ctx.fillStyle = "rgba(" + rgb + ",1)";
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath(); ctx.arc(sx - r * 0.25, sy - r * 0.25, r * 0.38, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+}
+
+function pathLine(path, i0, i1, stride) {
+    ctx.beginPath();
+    ctx.moveTo(X(path[2 * i0]), Y(path[2 * i0 + 1]));
+    for (let i = i0 + stride; i < i1; i += stride) ctx.lineTo(X(path[2 * i]), Y(path[2 * i + 1]));
+    ctx.lineTo(X(path[2 * (i1 - 1)]), Y(path[2 * (i1 - 1) + 1]));
+}
+
+function drawRun(t) {
+    const n = loops.length;
+    const live = phase === "live" || phase === "dying" || phase === "over" || (phase === "paused" && pausedFrom === "live");
+    const planning = phase === "ready" || (phase === "paused" && pausedFrom === "ready");
+    let idx = 0;                        // the moment on the shared timeline
+    if (live) idx = stepI;
+    else if (phase === "rewind") idx = Math.round(rewindFrom * (1 - easeInOut(clamp(phaseT / REWIND_T, 0, 1))));
+
+    // where each past self is still going: faint, so you can plan around it
+    ctx.lineWidth = Math.max(1, R * 0.006);
+    for (let e = 0; e < n; e++) {
+        const L = loops[e];
+        if (idx >= L.len - 1) continue;
+        const rgb = echoRGB(e, n);
+        const a = planning ? 0.3 : phase === "rewind" ? 0.12 : 0.1;
+        ctx.strokeStyle = "rgba(" + rgb + "," + a + ")";
+        pathLine(L.path, idx, L.len, 4);
+        ctx.stroke();
+        const lx = L.path[2 * (L.len - 1)], ly = L.path[2 * (L.len - 1) + 1];
+        ctx.strokeStyle = "rgba(" + rgb + "," + (a * 1.6) + ")";
+        ctx.beginPath(); ctx.arc(X(lx), Y(ly), PR * R * 0.75, 0, TAU); ctx.stroke();
+    }
+
+    // the hourglass
+    if (phase !== "rewind") {
+        const age = t - crystal.born;
+        const pop = clamp(age / 0.25, 0, 1);
+        const sand = live ? clamp(timeLeft / limit, 0, 1) : 1;
+        drawHourglass(X(crystal.x), Y(crystal.y), CR * R * 1.25 * (pop < 1 ? 0.6 + 0.4 * pop + Math.sin(pop * Math.PI) * 0.25 : 1), sand, t, pop);
+    }
+
+    // the past, moving
+    for (let e = 0; e < n; e++) {
+        const L = loops[e];
+        if (idx >= L.len) continue;
+        const rgb = echoRGB(e, n);
+        // trail behind (or, while rewinding, the stretch it's being pulled back along)
+        const t0 = phase === "rewind" ? idx : Math.max(0, idx - 42);
+        const t1 = phase === "rewind" ? Math.min(L.len - 1, idx + 36) : idx;
+        if (t1 - t0 > 3) {
+            const segs = 12;
+            for (let s = 0; s < segs; s++) {
+                const a0 = t0 + Math.floor((t1 - t0) * s / segs), a1 = t0 + Math.floor((t1 - t0) * (s + 1) / segs);
+                const fade = phase === "rewind" ? 1 - s / segs : s / segs;
+                ctx.strokeStyle = "rgba(" + rgb + "," + (0.45 * fade) + ")";
+                ctx.lineWidth = PR * R * (0.25 + 1.1 * fade);
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(X(L.path[2 * a0]), Y(L.path[2 * a0 + 1]));
+                ctx.lineTo(X(L.path[2 * a1]), Y(L.path[2 * a1 + 1]));
+                ctx.stroke();
+            }
+            ctx.lineCap = "butt";
+        }
+        const ex = L.path[2 * idx], ey = L.path[2 * idx + 1];
+        const fresh = planning ? 0.55 + 0.25 * Math.sin(t * 6 + e) : live && stepI * STEP < GRACE ? 0.55 : 0.9;
+        drawDot(ex, ey, rgb, fresh);
+    }
+
+    // you: a comet of the last fraction of a second
+    if (live && rec.length > 4) {
+        const len = rec.length / 2;
+        const from = Math.max(0, len - 24);
+        for (let i = from + 1; i < len; i++) {
+            const f = (i - from) / (len - from);
+            ctx.strokeStyle = "rgba(" + GOLD + "," + (0.5 * f) + ")";
+            ctx.lineWidth = PR * R * 1.6 * f;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(X(rec[2 * (i - 1)]), Y(rec[2 * (i - 1) + 1]));
+            ctx.lineTo(X(rec[2 * i]), Y(rec[2 * i + 1]));
+            ctx.stroke();
+        }
+        ctx.lineCap = "butt";
+    }
+    const breathe = planning ? 1 + 0.12 * Math.sin(t * 7) : 1;
+    drawDot(px, py, GOLD, 1, breathe);
+
+    // "LOOP n" as each loop begins
+    if (calloutT > 0 && phase !== "dying" && phase !== "over") {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "700 " + Math.round(R * 0.09) + "px Silkscreen, monospace";
+        ctx.globalAlpha = clamp(calloutT * 1.6, 0, 1);
+        ctx.fillStyle = calloutColor;
+        ctx.fillText(calloutText, CX, bannerY());
+        ctx.globalAlpha = 1;
+    }
+}
+
+function drawHourglass(x, y, s, sand, t, alpha) {
+    if (alpha <= 0) return;
+    const pulse = 1 + 0.08 * Math.sin(t * 4);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(glowSprite(GOLD), x - s * 2.6 * pulse, y - s * 2.6 * pulse, s * 5.2 * pulse, s * 5.2 * pulse);
+    ctx.strokeStyle = "rgba(253,230,138," + (0.35 + 0.2 * Math.sin(t * 4)) + ")";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, s * 1.55 * pulse, 0, TAU); ctx.stroke();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(t * 1.4) * 0.14);
+    const w = s * 0.72, gw = w * 0.86, gh = s * 0.9;
+    // sand: top drains, bottom piles, a thread falls between
+    ctx.fillStyle = "#fbbf24";
+    if (sand > 0.01) {
+        const hh = gh * 0.95 * sand, ww = gw * (hh / gh);
+        ctx.beginPath(); ctx.moveTo(-ww, -hh); ctx.lineTo(ww, -hh); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+    }
+    const h2 = gh * 0.9 * (1 - sand);
+    if (h2 > 0.5) {
+        const yTop = gh - h2, wTop = gw * (yTop / gh);
+        ctx.beginPath(); ctx.moveTo(-gw, gh); ctx.lineTo(gw, gh); ctx.lineTo(wTop, yTop); ctx.lineTo(-wTop, yTop); ctx.closePath(); ctx.fill();
+    }
+    if (sand > 0.01 && sand < 0.995) ctx.fillRect(-0.7, 0, 1.4, gh - h2);
+    // glass
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = Math.max(1.2, s * 0.08);
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(-gw, -gh); ctx.lineTo(gw, -gh); ctx.lineTo(0, 0); ctx.closePath();
+    ctx.moveTo(-gw, gh); ctx.lineTo(gw, gh); ctx.lineTo(0, 0); ctx.closePath();
+    ctx.stroke();
+    // caps
+    ctx.strokeStyle = "#fde68a";
+    ctx.lineWidth = Math.max(2, s * 0.16);
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-w, -s); ctx.lineTo(w, -s); ctx.moveTo(-w, s); ctx.lineTo(w, s); ctx.stroke();
+    ctx.lineCap = "butt";
+    ctx.restore();
+    ctx.globalAlpha = 1;
+}
+
+/* A few drifting selves on the menu */
+function drawAttract(t) {
+    for (let j = 0; j < 6; j++) {
+        const at = (tt) => {
+            const a = tt * 0.5 + j * TAU / 6;
+            const r = 0.45 + 0.28 * Math.sin(tt * 0.8 + j * 1.7);
+            return [Math.cos(a) * r, Math.sin(a * 1.3) * r];
+        };
+        const rgb = echoRGB(j, 6);
+        for (let s = 1; s <= 10; s++) {
+            const [x0, y0] = at(t - s * 0.035), [x1, y1] = at(t - (s - 1) * 0.035);
+            ctx.strokeStyle = "rgba(" + rgb + "," + (0.35 * (1 - s / 11)) + ")";
+            ctx.lineWidth = PR * R * (1.2 - s * 0.09);
+            ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(X(x0), Y(y0)); ctx.lineTo(X(x1), Y(y1)); ctx.stroke();
+        }
+        ctx.lineCap = "butt";
+        const [x, y] = at(t);
+        drawDot(x, y, rgb, 0.85);
+    }
+    drawHourglass(CX, CY, CR * R * 1.4, 0.5 + 0.5 * Math.sin(t * 0.7), t, 1);
+}
+
+function drawFx() {
+    for (const s of sparks) {
+        ctx.strokeStyle = "rgba(224,242,254," + (s.life / s.max) + ")";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(X(s.x0), Y(s.y0)); ctx.lineTo(X(s.x1), Y(s.y1)); ctx.stroke();
+    }
+    for (const r of rings) {
+        if (r.life > r.max) continue;
+        const k = 1 - r.life / r.max;
+        const rr = r.r0 + (r.r1 - r.r0) * (1 - (1 - k) * (1 - k));
+        ctx.strokeStyle = "rgba(" + r.rgb + "," + (0.8 * (1 - k)) + ")";
+        ctx.lineWidth = r.w * (1 - k) + 0.5;
+        ctx.beginPath(); ctx.arc(X(r.x), Y(r.y), rr * R, 0, TAU); ctx.stroke();
+    }
+    for (const p of parts) {
+        const a = clamp(p.life / 0.4, 0, 1);
+        const s = p.size * R;
+        ctx.fillStyle = "rgba(" + p.rgb + "," + a + ")";
+        ctx.fillRect(X(p.x) - s / 2, Y(p.y) - s / 2, s, s);
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const f of floats) {
+        const k = 1 - f.life / f.max;
+        ctx.globalAlpha = clamp(f.life / 0.3, 0, 1);
+        ctx.fillStyle = f.color;
+        ctx.font = "800 " + Math.round(f.size * R) + "px Outfit, sans-serif";
+        ctx.fillText(f.text, X(f.x), Y(f.y - k * 0.08));
+        ctx.globalAlpha = 1;
+    }
+}
+
+function drawJoystick() {
+    if (!joy) return;
+    const r = canvas.getBoundingClientRect();
+    const ax = joy.ax - r.left, ay = joy.ay - r.top;
+    let dx = joy.cx - joy.ax, dy = joy.cy - joy.ay;
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(148,163,184,0.25)";
+    ctx.beginPath(); ctx.arc(ax, ay, JOY_R, 0, TAU); ctx.stroke();
+    ctx.fillStyle = "rgba(226,232,240,0.18)";
+    ctx.beginPath(); ctx.arc(ax + dx, ay + dy, 15, 0, TAU); ctx.fill();
+}
+
+// VHS rewind: scanlines, torn bands and a cold tint
+function drawRewindFx(t) {
+    const k = clamp(phaseT / REWIND_T, 0, 1);
+    const strength = Math.sin(k * Math.PI);
+    if (!reduceMotion) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const W = canvas.width, H = canvas.height;
+        for (let b = 0; b < 4; b++) {
+            const by = Math.floor(((t * 3.1 + b * 0.27) % 1) * H);
+            const bh = Math.floor(H * rand(0.015, 0.05));
+            const shift = Math.round(rand(-1, 1) * 22 * dpr * strength);
+            if (by + bh < H && bh > 0) ctx.drawImage(canvas, 0, by, W, bh, shift, by, W, bh);
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    ctx.fillStyle = "rgba(96,165,250," + (0.07 * strength) + ")";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = "rgba(0,0,0," + (0.18 * strength) + ")";
+    for (let y = 0; y < ch; y += 3) ctx.fillRect(0, y, cw, 1);
+    ctx.globalAlpha = 0.55 * strength;
+    ctx.fillStyle = "#dbeafe";
+    ctx.font = "700 " + Math.round(R * 0.11) + "px Silkscreen, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("◀◀", CX, CY);
+    ctx.globalAlpha = 1;
+}
+
+// The moment it breaks: colour drains, the glass cracks
+function drawDeathFx() {
+    if (!death) return;
+    const k = clamp(phaseT / 0.5, 0, 1);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.globalCompositeOperation = "saturation";
+    ctx.globalAlpha = phase === "over" ? 1 : k;
+    ctx.fillStyle = "hsl(0,0%,50%)";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+
+    const cx = death.kind === "paradox" ? (death.x + death.ex) / 2 : death.x;
+    const cy = death.kind === "paradox" ? (death.y + death.ey) / 2 : death.y;
+    if (death.kind === "paradox") {
+        const grow = phase === "over" ? 1 : clamp(phaseT / 0.25, 0, 1);
+        ctx.strokeStyle = "rgba(254,205,211,0.85)";
+        ctx.lineWidth = 1.5;
+        for (const c of death.cracks) {
+            ctx.beginPath();
+            const m = Math.max(1, Math.floor(c.length * grow));
+            ctx.moveTo(X(cx + c[0][0]), Y(cy + c[0][1]));
+            for (let i = 1; i < m; i++) ctx.lineTo(X(cx + c[i][0]), Y(cy + c[i][1]));
+            ctx.stroke();
+        }
+        drawDot(death.ex, death.ey, echoRGB(death.e, loops.length), 1, 1.15);
+    }
+    drawDot(death.x, death.y, death.kind === "paradox" ? GOLD : "251,113,133", 1, 1.15);
+
+    const v = ctx.createRadialGradient(CX, CY, R * 0.6, CX, CY, Math.max(cw, ch) * 0.75);
+    v.addColorStop(0, "rgba(251,113,133,0)");
+    v.addColorStop(1, "rgba(251,113,133," + (0.18 * k) + ")");
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "700 " + Math.round(R * 0.11) + "px Silkscreen, monospace";
+    ctx.fillStyle = "rgba(254,205,211," + k + ")";
+    ctx.fillText(death.kind === "paradox" ? "PARADOX" : "TIME'S UP", CX, bannerY());
+}
+
+/* ---------- Simulation loop ---------- */
+let lastFrame = performance.now();
+
+function stepFx(dt) {
+    for (const p of parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 1 - 2.5 * dt; p.vy *= 1 - 2.5 * dt; p.life -= dt; }
+    parts = parts.filter(p => p.life > 0);
+    for (const r of rings) r.life -= dt;
+    rings = rings.filter(r => r.life > 0);
+    for (const f of floats) f.life -= dt;
+    floats = floats.filter(f => f.life > 0);
+    for (const s of sparks) s.life -= dt;
+    sparks = sparks.filter(s => s.life > 0);
+    shake = Math.max(0, shake - 30 * dt);
+    flashA = Math.max(0, flashA - dt * 1.8);
+    calloutT = Math.max(0, calloutT - dt * 0.9);
+}
+
+function update(dt) {
+    if (phase === "paused" || phase === "over") { stepFx(dt); return; }
+    stepFx(dt);
+    phaseT += dt;
+    if (phase === "ready") {
+        if (phaseT >= readyDur) goLive();
+    } else if (phase === "live") {
+        acc += dt;
+        while (acc >= STEP && phase === "live") { acc -= STEP; simStep(); }
+    } else if (phase === "rewind") {
+        if (phaseT >= REWIND_T) beginNextLoop();
+    } else if (phase === "dying") {
+        if (phaseT >= DIE_T) showGameOver();
+    }
+}
+
+function frame(now) {
+    const dt = clamp((now - lastFrame) / 1000, 0, 0.1);
+    lastFrame = now;
+    update(dt);
+    draw(now / 1000);
+    requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   Input wiring
+   ============================================================ */
+function toArena(clientX, clientY) {
+    const r = canvas.getBoundingClientRect();
+    const x = (clientX - r.left - CX) / R, y = (clientY - r.top - CY) / R;
+    const d = Math.hypot(x, y);
+    return d > LIMIT_R ? [x * LIMIT_R / d, y * LIMIT_R / d] : [x, y];
+}
+
+canvas.addEventListener("pointerdown", e => {
+    initAudio();
+    if (phase === "paused") { resume(); return; }
+    if (e.pointerType === "mouse") { mouseOn = true; [mx, my] = toArena(e.clientX, e.clientY); return; }
+    if (!joy) {
+        joy = { id: e.pointerId, ax: e.clientX, ay: e.clientY, cx: e.clientX, cy: e.clientY };
+        mouseOn = false;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener("pointermove", e => {
+    if (e.pointerType === "mouse") { mouseOn = true; [mx, my] = toArena(e.clientX, e.clientY); return; }
+    if (joy && e.pointerId === joy.id) { joy.cx = e.clientX; joy.cy = e.clientY; }
+});
+const endTouch = e => { if (joy && e.pointerId === joy.id) joy = null; };
+canvas.addEventListener("pointerup", endTouch);
+canvas.addEventListener("pointercancel", endTouch);
+
+const KEYMAP = { ArrowUp: "up", KeyW: "up", ArrowDown: "down", KeyS: "down", ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right" };
+
+window.addEventListener("keydown", e => {
+    initAudio();
+    if (phase === "over" && entryActive) { entryKey(e); return; }
+    const dirKey = KEYMAP[e.code];
+    if (dirKey) {
+        e.preventDefault();
+        keys[dirKey] = true;
+        mouseOn = false;
+        if (phase === "paused") resume();
+        return;
+    }
+    if (e.repeat) return;
+    if (e.code === "Space" || e.code === "Enter") {
+        if (e.target instanceof Element && e.target.closest("button")) return;   // let focused buttons click natively
+        e.preventDefault();
+        if (phase === "title") startRun();
+        else if (phase === "over") lockInAndRestart();
+        else if (phase === "paused") resume();
+    }
+});
+window.addEventListener("keyup", e => {
+    const dirKey = KEYMAP[e.code];
+    if (dirKey) keys[dirKey] = false;
+});
+window.addEventListener("blur", () => { keys.up = keys.down = keys.left = keys.right = false; joy = null; });
+
+/* ============================================================
+   Leaderboard
+   ============================================================ */
+const LB_OK = typeof window.ArcadeLB === "object";
+const titleRows = document.getElementById("titleRows");
+const overRows = document.getElementById("overRows");
+const lbEntry = document.getElementById("lbEntry");
+const lbSlots = document.getElementById("lbSlots");
+const saveState = document.getElementById("saveState");
+let lbReq = 0;
+let entryActive = false, entryPending = false, saving = false;
+let entrySel = 0, entryLetters = ["A", "A", "A"];
+// Only post names people actually chose: an untouched default "AAA"
+// isn't anyone, and auto-posting it fills the board with junk.
+let entryTouched = false;
+let pendingScore = 0;
+let overOpenedAt = 0;
+
+function lbMsg(el, text) { el.textContent = text; el.classList.add("lb-dim"); }
+
+function renderRows(el, top, hl) {
+    if (!top.length) { lbMsg(el, "NO SCORES YET — BE THE FIRST"); return; }
+    el.classList.remove("lb-dim");
+    el.innerHTML = "";
+    let marked = false;
+    top.forEach((e, i) => {
+        const row = document.createElement("div");
+        row.className = "lb-row";
+        const ini = INI_RE.test(e.initials) ? e.initials : "???";
+        const r = document.createElement("span"); r.className = "r"; r.textContent = (i + 1) + ".";
+        const n = document.createElement("span"); n.textContent = ini.replace(/ /g, " ");
+        const s = document.createElement("span"); s.className = "s"; s.textContent = e.score;
+        if (hl && !marked && ini === hl.initials && e.score === hl.score) { row.classList.add("me"); marked = true; }
+        row.append(r, n, s);
+        el.appendChild(row);
+    });
+}
+
+async function loadBoard(el, hl) {
+    if (!LB_OK) { lbMsg(el, "LEADERBOARD OFFLINE"); return null; }
+    const req = ++lbReq;
+    lbMsg(el, "LOADING…");
+    try {
+        const top = await window.ArcadeLB.fetchTop(BOARD);
+        if (req !== lbReq) return null;
+        renderRows(el, top, hl);
+        return top;
+    } catch (e) {
+        if (req === lbReq) lbMsg(el, "LEADERBOARD OFFLINE");
+        return null;
+    }
+}
+
+function buildSlots() {
+    lbSlots.innerHTML = "";
+    entryLetters.forEach((chr, i) => {
+        const slot = document.createElement("div");
+        slot.className = "lb-slot" + (i === entrySel ? " sel" : "");
+        const up = document.createElement("button");
+        up.textContent = "▲";
+        up.setAttribute("aria-label", "Next letter");
+        const letter = document.createElement("div");
+        letter.className = "lb-letter";
+        letter.textContent = chr === " " ? " " : chr;
+        const dn = document.createElement("button");
+        dn.textContent = "▼";
+        dn.setAttribute("aria-label", "Previous letter");
+        up.addEventListener("click", e => { e.stopPropagation(); cycleLetter(i, 1); });
+        dn.addEventListener("click", e => { e.stopPropagation(); cycleLetter(i, -1); });
+        letter.addEventListener("click", () => { entrySel = i; buildSlots(); });
+        slot.append(up, letter, dn);
+        lbSlots.appendChild(slot);
+    });
+}
+
+function cycleLetter(i, d) {
+    const c = LETTERS.indexOf(entryLetters[i]);
+    entryLetters[i] = LETTERS[(c + d + LETTERS.length) % LETTERS.length];
+    entrySel = i;
+    touchEntry();
+    buildSlots();
+    sndUi(i);
+}
+function touchEntry() {
+    if (entryTouched) return;
+    entryTouched = true;
+    updateAgainHint();
+}
+function updateAgainHint() {
+    document.getElementById("againHint").textContent =
+        !entryPending ? "SPACE / ENTER"
+        : entryTouched ? "AGAIN SAVES YOUR SCORE TOO"
+        : "SAVE YOUR INITIALS, OR AGAIN TO SKIP";
+}
+
+function savedInitials() {
+    // returning arcade players: reuse initials chosen in any of the games
+    try {
+        for (const k of INITIALS_FALLBACK) {
+            const v = localStorage.getItem(k);
+            if (v && INI_RE.test(v) && v.trim()) return v;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function showEntry(sc) {
+    pendingScore = sc;
+    entryLetters = ["A", "A", "A"];
+    entryTouched = false;
+    const saved = savedInitials();
+    if (saved) { entryLetters = saved.split(""); entryTouched = true; }
+    entrySel = 0;
+    entryActive = true;
+    entryPending = true;
+    saveState.textContent = "";
+    saveState.className = "savestate";
+    document.getElementById("saveBtn").classList.remove("hidden");
+    lbSlots.classList.remove("hidden");
+    buildSlots();
+    lbEntry.classList.remove("hidden");
+    updateAgainHint();
+}
+function hideEntry() {
+    entryActive = false;
+    lbEntry.classList.add("hidden");
+    updateAgainHint();
+}
+
+function validInitials() {
+    const ini = entryLetters.join("");
+    if (BAD_INITIALS.indexOf(ini) !== -1) {
+        entryLetters = [" ", " ", " "];
+        entrySel = 0;
+        buildSlots();
+        saveState.textContent = "PICK DIFFERENT INITIALS";
+        saveState.className = "savestate err";
+        return null;
+    }
+    if (!ini.trim()) {
+        saveState.textContent = "ENTER AT LEAST ONE LETTER";
+        saveState.className = "savestate err";
+        return null;
+    }
+    return ini;
+}
+
+// Save and stay, so you get to watch your initials land on the board
+async function saveEntry() {
+    if (!entryPending || saving) return;
+    const ini = validInitials();
+    if (!ini) return;
+    try { localStorage.setItem(INITIALS_KEY, ini); } catch (e) {}
+    if (!LB_OK) { saveState.textContent = "LEADERBOARD OFFLINE"; saveState.className = "savestate err"; return; }
+    saving = true;
+    saveState.textContent = "SAVING…";
+    saveState.className = "savestate";
+    const myRun = runId;
+    try {
+        await window.ArcadeLB.submit(BOARD, ini, pendingScore);
+        if (myRun !== runId) return;
+        entryPending = false;
+        saveState.textContent = "SAVED ✓";
+        saveState.className = "savestate ok";
+        document.getElementById("saveBtn").classList.add("hidden");
+        lbSlots.classList.add("hidden");
+        entryActive = false;
+        updateAgainHint();
+        sndSaved();
+        haptic([12, 40, 12]);
+        loadBoard(overRows, { initials: ini, score: pendingScore });
+    } catch (e) {
+        if (myRun === runId) {
+            saveState.textContent = "COULDN'T SAVE — TAP SAVE TO RETRY";
+            saveState.className = "savestate err";
+        }
+    } finally {
+        saving = false;
+    }
+}
+
+// AGAIN posts a qualifying score on the way out — but only under initials
+// the player actually chose, never an untouched default
+function lockInAndRestart() {
+    if (performance.now() - overOpenedAt < 450) return;     // no accidental instant restarts
+    if (entryPending && entryTouched) {
+        const ini = validInitials();
+        if (!ini) return;
+        try { localStorage.setItem(INITIALS_KEY, ini); } catch (e) {}
+        if (LB_OK) window.ArcadeLB.submit(BOARD, ini, pendingScore).catch(() => {});
+    }
+    entryPending = false;
+    hideEntry();
+    startRun();
+}
+
+function entryKey(e) {
+    if (e.target instanceof Element && e.target.closest("button") &&
+        (e.code === "Enter" || e.code === "Space" || e.code === "NumpadEnter")) return;
+    if (e.code === "ArrowUp") { e.preventDefault(); cycleLetter(entrySel, 1); }
+    else if (e.code === "ArrowDown") { e.preventDefault(); cycleLetter(entrySel, -1); }
+    else if (e.code === "ArrowLeft") { e.preventDefault(); entrySel = (entrySel + 2) % 3; buildSlots(); }
+    else if (e.code === "ArrowRight") { e.preventDefault(); entrySel = (entrySel + 1) % 3; buildSlots(); }
+    else if (e.code === "Enter") { e.preventDefault(); lockInAndRestart(); }
+    else if (e.code === "Space") { e.preventDefault(); touchEntry(); entryLetters[entrySel] = " "; entrySel = (entrySel + 1) % 3; buildSlots(); }
+    else if (e.code === "Backspace") { e.preventDefault(); touchEntry(); entrySel = (entrySel + 2) % 3; entryLetters[entrySel] = " "; buildSlots(); }
+    else if (/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+        touchEntry();
+        entryLetters[entrySel] = e.key.toUpperCase();
+        sndUi(entrySel);
+        entrySel = (entrySel + 1) % 3;
+        buildSlots();
+    }
+}
+
+/* ---------- Screens ---------- */
+function hideAllOverlays() {
+    for (const id of ["titleOv", "overOv", "pauseOv"]) document.getElementById(id).classList.remove("show");
+}
+
+function updateHud() {
+    document.getElementById("hudScore").textContent = score;
+    document.getElementById("hudLoop").textContent = loop;
+    document.getElementById("hudBest").textContent = SAVE.best;
+    document.getElementById("titleBest").textContent = SAVE.best ? "YOUR BEST " + SAVE.best + " · LOOP " + (SAVE.bestLoop + 1) : "";
+}
+
+// Every loop of the run, overlaid: your path through time
+function drawTimeline() {
+    const c = document.getElementById("timeline");
+    const g = c.getContext("2d");
+    const S = c.width, cx = S / 2, cy = S / 2, r = S * 0.45;
+    g.clearRect(0, 0, S, S);
+    g.fillStyle = "#0b1329";
+    g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill();
+    g.strokeStyle = "rgba(96,165,250,0.3)";
+    g.lineWidth = 2;
+    g.stroke();
+    const all = loops.slice();
+    if (death && rec.length > 2) all.push({ path: Float32Array.from(rec), len: rec.length / 2, live: true });
+    const n = all.length;
+    all.forEach((L, k) => {
+        // oldest violet → newest gold
+        const f = n <= 1 ? 1 : k / (n - 1);
+        const rgb = L.live ? GOLD : hsl2rgb(Math.round(275 - 230 * f), 90, 66).join(",");
+        g.strokeStyle = "rgba(" + rgb + ",0.85)";
+        g.lineWidth = 2.2;
+        g.lineJoin = "round";
+        g.beginPath();
+        g.moveTo(cx + L.path[0] * r, cy + L.path[1] * r);
+        for (let i = 3; i < L.len; i += 3) g.lineTo(cx + L.path[2 * i] * r, cy + L.path[2 * i + 1] * r);
+        g.lineTo(cx + L.path[2 * (L.len - 1)] * r, cy + L.path[2 * (L.len - 1) + 1] * r);
+        g.stroke();
+        g.fillStyle = "rgba(" + rgb + ",1)";
+        g.beginPath(); g.arc(cx + L.path[2 * (L.len - 1)] * r, cy + L.path[2 * (L.len - 1) + 1] * r, 4, 0, TAU); g.fill();
+    });
+    if (death) {
+        const x = cx + (death.kind === "paradox" ? (death.x + death.ex) / 2 : death.x) * r;
+        const y = cy + (death.kind === "paradox" ? (death.y + death.ey) / 2 : death.y) * r;
+        g.strokeStyle = "#fb7185";
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(x - 8, y - 8); g.lineTo(x + 8, y + 8); g.moveTo(x + 8, y - 8); g.lineTo(x - 8, y + 8); g.stroke();
+    }
+}
+
+function showGameOver() {
+    if (phase !== "dying") return;
+    phase = "over";
+    padFadeOut();
+    overOpenedAt = performance.now();
+    const myRun = runId;
+    const cleared = loops.length;
+
+    document.getElementById("overTitle").textContent = death && death.kind === "timeout" ? "TIME'S UP" : "PARADOX";
+    document.getElementById("overReason").textContent =
+        death && death.kind === "paradox"
+            ? "You collided with your loop-" + (death.e + 1) + " self"
+            : "The hourglass ran dry";
+    document.getElementById("finalScore").textContent = score;
+    document.getElementById("finalStats").innerHTML =
+        "<b>" + cleared + "</b> loop" + (cleared === 1 ? "" : "s") + " survived · <b>" + grazes + "</b> graze" + (grazes === 1 ? "" : "s") +
+        (isFinite(fastest) ? " · fastest <b>" + fastest.toFixed(2) + "s</b>" : "");
+    document.getElementById("newBest").classList.toggle("hidden", !newBestRun);
+    const rankLine = document.getElementById("rankLine");
+    rankLine.textContent = "";
+    hideEntry();
+    drawTimeline();
+    document.getElementById("overOv").classList.add("show");
+
+    loadBoard(overRows, null).then(top => {
+        if (!top || myRun !== runId || phase !== "over") return;
+        if (window.ArcadeLB.qualifies(top, score)) {
+            const rank = top.filter(e => e.score >= score).length + 1;
+            rankLine.textContent = "YOU'RE #" + rank + " ON THE BOARD";
+            showEntry(score);
+            sndNewBest();
+        } else if (top.length >= window.ArcadeLB.MAX && score > 0) {
+            const need = top[top.length - 1].score - score + 1;
+            rankLine.textContent = need + " MORE TO MAKE THE TOP 10";
+        }
+    });
+}
+
+document.getElementById("startBtn").addEventListener("click", startRun);
+document.getElementById("againBtn").addEventListener("click", lockInAndRestart);
+document.getElementById("saveBtn").addEventListener("click", saveEntry);
+document.getElementById("resumeBtn").addEventListener("click", resume);
+const muteBtn = document.getElementById("muteBtn");
+function syncMute() {
+    muteBtn.textContent = SAVE.muted ? "🔇" : "🔊";
+    if (master) master.gain.value = SAVE.muted ? 0 : 0.9;
+}
+muteBtn.addEventListener("click", () => {
+    SAVE.muted = !SAVE.muted;
+    persist();
+    syncMute();
+    if (SAVE.muted) padFadeOut();
+    else {
+        initAudio();
+        sndUi(0);
+        if (phase === "ready" || phase === "live" || phase === "rewind") { padStart(loop); padLoop(loop); }
+    }
+});
+
+/* ---------- Boot ---------- */
+resize();
+syncMute();
+updateHud();
+loadBoard(titleRows, null);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
